@@ -15,7 +15,7 @@ export class RecordingService {
     const recording = this.recordingRepository.create({
       studyId,
       s3Key: dto.s3Key,
-      metadata: dto.metadata ?? null,
+      metadata: dto.metadata,
     });
     return this.recordingRepository.save(recording);
   }

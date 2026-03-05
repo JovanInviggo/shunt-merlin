@@ -1,5 +1,5 @@
-import { IsString, MinLength, IsObject, IsOptional } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsString, MinLength, IsObject } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateRecordingDto {
   // studyId is intentionally omitted — it is taken from the authenticated
@@ -12,11 +12,10 @@ export class CreateRecordingDto {
   @MinLength(1)
   s3Key: string;
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     description: 'Arbitrary JSON metadata about the recording (e.g. device info, duration, session context)',
     example: { duration: 142, deviceModel: 'iPhone 15', appVersion: '1.0.0' },
   })
-  @IsOptional()
   @IsObject()
-  metadata?: Record<string, unknown>;
+  metadata: Record<string, unknown>;
 }

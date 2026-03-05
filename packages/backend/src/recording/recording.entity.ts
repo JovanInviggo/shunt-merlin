@@ -20,8 +20,8 @@ export class Recording {
   @Column()
   s3Key: string;
 
-  @Column({ type: 'jsonb', nullable: true })
-  metadata: Record<string, unknown> | null;
+  @Column({ type: 'jsonb' })
+  metadata: Record<string, unknown>;
 
   @ManyToOne(() => Study)
   @JoinColumn({ name: 'studyId', referencedColumnName: 'studyId' })

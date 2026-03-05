@@ -148,6 +148,13 @@ export function fetchStudies() {
   return apiFetch<Study[]>("/study");
 }
 
+export function createStudy(studyId: string) {
+  return apiFetch<Study>("/study", {
+    method: "POST",
+    body: JSON.stringify({ studyId }),
+  });
+}
+
 export function fetchRecordings() {
   return apiFetch<Recording[]>("/recordings");
 }

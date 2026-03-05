@@ -9,7 +9,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useI18n } from "@/i18n";
-import { useStudies } from "@/hooks/use-studies";
+import { useCreateStudy, useStudies } from "@/hooks/use-studies";
 import { useRecordings } from "@/hooks/use-recordings";
 type SortColumn = "studyId" | "vascularAccess" | "lastRecording" | "recordingCount" | "status" | "flaggedForReview";
 type SortDirection = "asc" | "desc";
@@ -21,6 +21,7 @@ const Patients = () => {
   const { t } = useI18n();
   const { data: studies, isLoading: studiesLoading, error: studiesError } = useStudies();
   const { data: recordings } = useRecordings();
+  const createStudy = useCreateStudy();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newPatient, setNewPatient] = useState({
     studyId: "",
@@ -37,29 +38,26 @@ const Patients = () => {
     }
   };
 
-  const handleAddPatient = () => {
-    // Validate Study ID
+  const handleAddPatient = async () => {
     if (!newPatient.studyId.trim()) {
       setStudyIdError(t("patients.add.studyId.required"));
       return;
     }
 
-    // Check for uniqueness
     const isDuplicate = patients.some(p => p.studyId.toLowerCase() === newPatient.studyId.toLowerCase());
     if (isDuplicate) {
       setStudyIdError(t("patients.add.studyId.duplicate"));
       return;
     }
 
-    // TODO: Add patient to database/state
-    console.log("Adding patient:", newPatient);
-    setIsAddDialogOpen(false);
-    setNewPatient({
-      studyId: "",
-      phone: "",
-      vascularAccess: ""
-    });
-    setStudyIdError("");
+    try {
+      await createStudy.mutateAsync(newPatient.studyId.trim());
+      setIsAddDialogOpen(false);
+      setNewPatient({ studyId: "", phone: "", vascularAccess: "" });
+      setStudyIdError("");
+    } catch (err) {
+      setStudyIdError((err as Error).message);
+    }
   };
   const patients = useMemo(() => {
     if (!studies) return [];
@@ -233,7 +231,7 @@ const Patients = () => {
             }}>
               {t("patients.add.cancel")}
             </Button>
-            <Button onClick={handleAddPatient}>
+            <Button onClick={handleAddPatient} disabled={createStudy.isPending}>
               {t("patients.add.save")}
             </Button>
           </DialogFooter>

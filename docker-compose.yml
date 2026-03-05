@@ -1,0 +1,42 @@
+services:
+    postgres:
+        image: postgres:16-alpine
+        environment:
+            POSTGRES_USER: postgres
+            POSTGRES_PASSWORD: password
+            POSTGRES_DB: shunt_wizzard
+        ports:
+            - '5432:5432'
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+        healthcheck:
+            test: ['CMD-SHELL', 'pg_isready -U postgres']
+            interval: 5s
+            timeout: 5s
+            retries: 5
+
+    backend:
+        build:
+            context: ./packages/backend
+            target: development
+        ports:
+            - '3000:3000'
+        environment:
+            NODE_ENV: development
+            DATABASE_HOST: postgres
+            DATABASE_PORT: 5432
+            DATABASE_USER: postgres
+            DATABASE_PASSWORD: password
+            DATABASE_NAME: shunt_wizzard
+            JWT_SECRET: local-dev-secret-change-for-staging-and-prod
+            JWT_ACCESS_EXPIRATION: 15m
+            ALLOWED_ORIGINS: http://localhost:5173
+        volumes:
+            - ./packages/backend:/app
+            - /app/node_modules
+        depends_on:
+            postgres:
+                condition: service_healthy
+
+volumes:
+    postgres_data:

@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "52954005-c745-4be9-bc75-fb859bc99e14"
+      }
+    },
+    "android": {
+      "package": "com.jovanmatic.shuntwizzard"
+    }
+  }
+}

@@ -11,24 +11,26 @@ spec:
     solvers:
       - selector:
           dnsNames:
-            - dev.shuntwizard.com
+            - dev-dashboard.shuntwizard.com
             - dev-api.shuntwizard.com
         http01:
           gatewayHTTPRoute:
             parentRefs:
               - name: dev-gateway
                 namespace: shunt-wizzard-dev
+                sectionName: http
                 kind: Gateway
                 group: gateway.networking.k8s.io
 
       - selector:
           dnsNames:
-            - shuntwizard.com
+            - dashboard.shuntwizard.com
             - api.shuntwizard.com
         http01:
           gatewayHTTPRoute:
             parentRefs:
               - name: prod-gateway
                 namespace: shunt-wizzard-prod
+                sectionName: http
                 kind: Gateway
                 group: gateway.networking.k8s.io

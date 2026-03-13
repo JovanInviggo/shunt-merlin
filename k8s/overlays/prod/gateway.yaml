@@ -6,7 +6,8 @@ kind: Gateway
 metadata:
   name: prod-gateway
   annotations:
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    load-balancer.hetzner.cloud/location: "nbg1"
+    load-balancer.hetzner.cloud/use-private-ip: "true"
 spec:
   gatewayClassName: cilium
   listeners:
@@ -20,7 +21,7 @@ spec:
     - name: https-dashboard
       port: 443
       protocol: HTTPS
-      hostname: "shuntwizard.com"
+      hostname: "dashboard.shuntwizard.com"
       tls:
         mode: Terminate
         certificateRefs:
@@ -71,7 +72,7 @@ spec:
     - name: prod-gateway
       sectionName: https-dashboard
   hostnames:
-    - "shuntwizard.com"
+    - "dashboard.shuntwizard.com"
   rules:
     - matches:
         - path:

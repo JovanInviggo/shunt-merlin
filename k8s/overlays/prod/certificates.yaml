@@ -1,0 +1,13 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: prod-tls
+  namespace: shunt-wizzard-prod
+spec:
+  secretName: prod-tls-secret
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+    - dashboard.shuntwizard.com
+    - api.shuntwizard.com

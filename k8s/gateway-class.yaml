@@ -1,0 +1,11 @@
+# GatewayClass — tells the cluster which controller handles Gateways.
+# This is cluster-scoped (no namespace) and only needs to be applied once.
+#
+# "cilium" is the controller name for Cilium's built-in Gateway API implementation.
+# Since Cilium is already running on your cluster, no extra controller needed.
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: cilium
+spec:
+  controllerName: io.cilium/gateway-controller

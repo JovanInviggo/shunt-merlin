@@ -1,0 +1,116 @@
+# Gateway for the dev environment.
+# When applied, Cilium creates a Hetzner Load Balancer and assigns it a public IP.
+# That IP is what you point your DNS records at.
+#
+# The cert-manager.io/cluster-issuer annotation tells cert-manager to automatically
+# issue TLS certificates for every HTTPS listener below. You do NOT create
+# Certificate resources manually — cert-manager does it for you.
+#
+# Replace dev.shuntwizard.com and dev-api.shuntwizard.com with your real domains.
+
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: dev-gateway
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  gatewayClassName: cilium
+  listeners:
+    # HTTP on port 80 — used only for:
+    #   1. Redirecting users to HTTPS
+    #   2. Let's Encrypt ACME challenge (cert-manager creates a temporary route here)
+    - name: http
+      port: 80
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: Same
+
+    # HTTPS for the dashboard
+    - name: https-dashboard
+      port: 443
+      protocol: HTTPS
+      hostname: "dev.shuntwizard.com"
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: dev-tls-secret
+      allowedRoutes:
+        namespaces:
+          from: Same
+
+    # HTTPS for the backend API
+    - name: https-api
+      port: 443
+      protocol: HTTPS
+      hostname: "dev-api.shuntwizard.com"
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: dev-tls-secret
+      allowedRoutes:
+        namespaces:
+          from: Same
+
+---
+
+# Redirect all HTTP traffic to HTTPS
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: http-redirect
+spec:
+  parentRefs:
+    - name: dev-gateway
+      sectionName: http
+  rules:
+    - filters:
+        - type: RequestRedirect
+          requestRedirect:
+            scheme: https
+            statusCode: 301
+
+---
+
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: dashboard-route
+spec:
+  parentRefs:
+    - name: dev-gateway
+      sectionName: https-dashboard
+  hostnames:
+    - "dev.shuntwizard.com"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: dashboard-svc
+          port: 80
+
+---
+
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: api-route
+spec:
+  parentRefs:
+    - name: dev-gateway
+      sectionName: https-api
+  hostnames:
+    - "dev-api.shuntwizard.com"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: backend-svc
+          port: 80

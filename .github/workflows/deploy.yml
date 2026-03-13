@@ -69,6 +69,8 @@ jobs:
           file: packages/backend/Dockerfile
           target: production
           push: true
+          # Build for both Intel (amd64) and ARM (arm64) — Hetzner nodes are arm64
+          platforms: linux/arm64
           tags: |
             ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
             ${{ env.BACKEND_IMAGE }}:${{ env.ENVIRONMENT }}-latest
@@ -81,6 +83,7 @@ jobs:
           context: packages/dashboard
           file: packages/dashboard/Dockerfile
           push: true
+          platforms: linux/arm64
           build-args: |
             VITE_API_URL=${{ env.VITE_API_URL }}
           tags: |

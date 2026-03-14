@@ -356,30 +356,36 @@ Replace with a real cert once certs are sorted (see section 7).
 
 ### Current state
 
-Both dev endpoints use a **self-signed certificate**. This means:
-- HTTPS works (traffic is encrypted)
-- Browsers show a security warning ("Your connection is not private")
-- The mobile app and any API clients will reject it unless configured to skip verification
-- Not acceptable for production
+Both dev endpoints have a **real Let's Encrypt certificate** issued via certbot DNS-01 challenge.
 
-### Why cert-manager's automatic issuance isn't working yet
+| Domain | Issued by | Expires |
+|--------|-----------|---------|
+| dev-dashboard.shuntwizard.com | Let's Encrypt (E8) | June 12 2026 |
+| dev-api.shuntwizard.com | Let's Encrypt (E8) | June 12 2026 |
+
+The certificate is stored as `dev-tls-secret` in the `shunt-wizzard-dev` namespace.
+Prod does not have a real cert yet — needs to be done as part of prod deployment.
+
+**Renewal reminder:** Let's Encrypt certs expire every 90 days. Put a calendar reminder
+for early June 2026. Until DNS is moved to Cloudflare, renewal is manual (see Option B below).
+
+> **Action required (future):** The manual certbot approach is a temporary solution.
+> Once a company Cloudflare account is available, migrate DNS from Squarespace to Cloudflare
+> and switch to the DNS-01 auto-renewal setup (Option C below). After that, certs renew
+> automatically forever — no calendar reminders, no manual steps.
+
+### Why cert-manager's automatic issuance isn't set up yet
 
 cert-manager can automatically request certificates from Let's Encrypt using an **HTTP-01
 challenge**: Let's Encrypt visits `http://dev-api.shuntwizard.com/.well-known/acme-challenge/...`
 to verify you control the domain.
 
 For this to work, cert-manager creates a temporary HTTPRoute in your Gateway. This requires
-cert-manager to have Gateway API support enabled (`enableGatewayAPI=true`). However, in
-previous Cilium versions this caused cert-manager to interfere with the TLS secret. This
-has NOT been retested with Cilium 1.19.1 + cert-manager v1.20.0.
+cert-manager to have Gateway API support enabled (`enableGatewayAPI=true`). This has not
+been tested with Cilium 1.19.1 + cert-manager v1.20.0 and is left for a future iteration.
+The manual DNS-01 approach via certbot works reliably in the meantime.
 
-### Option A — Test HTTP-01 with current setup (try first)
-
-cert-manager is already configured (`k8s/cert-manager-issuer.yaml`). To trigger certificate
-issuance you need `Certificate` resources or annotations on the Gateway. This needs to be
-attempted and tested.
-
-### Option B — Manual DNS-01 with certbot (works today, manual renewal)
+### Option A — Manual DNS-01 with certbot (current approach)
 
 ```bash
 brew install certbot

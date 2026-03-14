@@ -6,7 +6,7 @@ WORKDIR /app
 FROM base AS development
 
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 
 COPY entrypoint.sh ./
 
@@ -15,11 +15,17 @@ COPY . .
 ENTRYPOINT ["sh", "./entrypoint.sh"]
 CMD ["npm", "run", "start:dev"]
 
+# Production deps stage (cached independently from build)
+FROM base AS deps
+
+COPY package*.json ./
+RUN npm ci --omit=dev
+
 # Build stage
 FROM base AS build
 
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 
 COPY . .
 RUN npm run build
@@ -27,9 +33,7 @@ RUN npm run build
 # Production stage
 FROM base AS production
 
-COPY package*.json ./
-RUN npm install --omit=dev
-
+COPY --from=deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 
 CMD ["node", "dist/main"]

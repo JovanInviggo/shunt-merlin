@@ -74,8 +74,8 @@ jobs:
           tags: |
             ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
             ${{ env.BACKEND_IMAGE }}:${{ env.ENVIRONMENT }}-latest
-          cache-from: type=registry,ref=${{ env.BACKEND_IMAGE }}:${{ env.ENVIRONMENT }}-latest
-          cache-to: type=inline
+          cache-from: type=registry,ref=${{ env.BACKEND_IMAGE }}:cache-${{ env.ENVIRONMENT }}
+          cache-to: type=registry,ref=${{ env.BACKEND_IMAGE }}:cache-${{ env.ENVIRONMENT }},mode=max
 
       - name: Build and push dashboard image
         uses: docker/build-push-action@v6
@@ -89,8 +89,8 @@ jobs:
           tags: |
             ${{ env.DASHBOARD_IMAGE }}:${{ github.sha }}
             ${{ env.DASHBOARD_IMAGE }}:${{ env.ENVIRONMENT }}-latest
-          cache-from: type=registry,ref=${{ env.DASHBOARD_IMAGE }}:${{ env.ENVIRONMENT }}-latest
-          cache-to: type=inline
+          cache-from: type=registry,ref=${{ env.DASHBOARD_IMAGE }}:cache-${{ env.ENVIRONMENT }}
+          cache-to: type=registry,ref=${{ env.DASHBOARD_IMAGE }}:cache-${{ env.ENVIRONMENT }},mode=max
 
       - name: Set up kubectl
         run: |

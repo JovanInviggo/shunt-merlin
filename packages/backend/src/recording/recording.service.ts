@@ -3,6 +3,16 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Recording } from './recording.entity';
 import { CreateRecordingDto } from './dto/create-recording.dto';
+import { UpdateRecordingDto } from './dto/update-recording.dto';
+import { PaginationQueryDto } from './dto/pagination-query.dto';
+
+export interface PaginatedRecordings {
+  data: Recording[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
 
 @Injectable()
 export class RecordingService {
@@ -24,16 +34,32 @@ export class RecordingService {
     return this.recordingRepository.findOne({ where: { id } });
   }
 
-  async findAll(): Promise<Recording[]> {
-    return this.recordingRepository.find({
+  async findAll(pagination: PaginationQueryDto): Promise<PaginatedRecordings> {
+    const { page, limit } = pagination;
+    const [data, total] = await this.recordingRepository.findAndCount({
       order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
     });
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
-  async findByStudyId(studyId: string): Promise<Recording[]> {
-    return this.recordingRepository.find({
+  async update(id: string, dto: UpdateRecordingDto): Promise<Recording | null> {
+    await this.recordingRepository.update(id, dto);
+    return this.findOne(id);
+  }
+
+  async findByStudyId(
+    studyId: string,
+    pagination: PaginationQueryDto,
+  ): Promise<PaginatedRecordings> {
+    const { page, limit } = pagination;
+    const [data, total] = await this.recordingRepository.findAndCount({
       where: { studyId },
       order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
     });
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 }

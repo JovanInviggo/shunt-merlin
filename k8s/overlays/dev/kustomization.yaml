@@ -4,7 +4,7 @@ kind: Kustomization
 # Every resource from base gets deployed into this namespace
 namespace: shunt-wizzard-dev
 
-bases:
+resources:
   - ../../base
 
 # Dev-specific resources (namespace + ingress with dev URLs)

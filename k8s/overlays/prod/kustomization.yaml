@@ -3,7 +3,7 @@ kind: Kustomization
 
 namespace: shunt-wizzard-prod
 
-bases:
+resources:
   - ../../base
 
 resources:

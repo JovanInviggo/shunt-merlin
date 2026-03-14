@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { useRecordings } from "@/hooks/use-recordings";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,22 +17,21 @@ import { useToast } from "@/hooks/use-toast";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { WaveformChart } from "@/components/WaveformChart";
 import { useI18n } from "@/i18n";
+import { fetchStudy, RecordingClassification } from "@/lib/api";
+import { useUpdateRecording } from "@/hooks/use-recordings";
 
-// Mock patient data
 const patientData = {
-  id: 1,
-  studyId: "P001",
-  phone: "(555) 123-4567",
-  vascularAccess: "Unterarm links",
+  phone: "",
+  vascularAccess: "",
   avatarColor: "hsl(220, 90%, 56%)",
   nephrologist: {
-    primaryContact: "Dr. Sarah Williams",
-    phone: "(555) 987-6543",
-    email: "s.williams@nephrology.com",
-    street: "456 Medical Center Dr",
-    postalCode: "12345",
-    city: "Springfield",
-    country: "USA"
+    primaryContact: "",
+    phone: "",
+    email: "",
+    street: "",
+    postalCode: "",
+    city: "",
+    country: ""
   },
   shuntInfo: {
     field1: "",
@@ -44,68 +45,6 @@ const getInitials = (studyId: string) => {
   return studyId.length >= 2 ? studyId.substring(0, 2).toUpperCase() : studyId.toUpperCase();
 };
 
-// Mock recordings data
-const recordings = [{
-  id: 1,
-  date: "2025-11-25",
-  time: "09:30",
-  duration: "45s",
-  classification: "normal",
-  notes: "",
-  reviewed: false,
-  flaggedForReview: false,
-  waveform: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 50'%3E%3Cpath d='M0,25 Q10,15 20,25 T40,25 Q50,20 60,25 T80,25 Q90,30 100,25 T120,25 Q130,20 140,25 T160,25 Q170,30 180,25 T200,25' stroke='%2308bcd0' fill='none' stroke-width='2'/%3E%3C/svg%3E",
-  recordingData: {
-    deviceType: "iPhone 14 Pro",
-    microphoneType: "Built-in",
-    recordingQuality: "High (44.1 kHz)",
-    bitDepth: "16-bit",
-    fileFormat: "WAV",
-    fileSize: "2.4 MB",
-    environment: "Clinic Room A",
-    noiseLevel: "Low"
-  }
-}, {
-  id: 2,
-  date: "2025-11-22",
-  time: "14:20",
-  duration: "38s",
-  classification: "normal",
-  notes: "Patient reported feeling well",
-  reviewed: true,
-  flaggedForReview: false,
-  waveform: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 50'%3E%3Cpath d='M0,25 Q10,15 20,25 T40,25 Q50,20 60,25 T80,25 Q90,30 100,25 T120,25 Q130,20 140,25 T160,25 Q170,30 180,25 T200,25' stroke='%2308bcd0' fill='none' stroke-width='2'/%3E%3C/svg%3E",
-  recordingData: {
-    deviceType: "Samsung Galaxy S23",
-    microphoneType: "Built-in",
-    recordingQuality: "High (48 kHz)",
-    bitDepth: "24-bit",
-    fileFormat: "FLAC",
-    fileSize: "1.8 MB",
-    environment: "Home",
-    noiseLevel: "Medium"
-  }
-}, {
-  id: 3,
-  date: "2025-11-19",
-  time: "10:15",
-  duration: "52s",
-  classification: "abnormal",
-  notes: "Slight turbulence detected, monitoring required",
-  reviewed: false,
-  flaggedForReview: true,
-  waveform: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 50'%3E%3Cpath d='M0,25 Q10,10 20,25 T40,25 Q50,35 60,25 T80,25 Q90,15 100,25 T120,25 Q130,35 140,25 T160,25 Q170,15 180,25 T200,25' stroke='%23eab308' fill='none' stroke-width='2'/%3E%3C/svg%3E",
-  recordingData: {
-    deviceType: "iPhone 13",
-    microphoneType: "External USB-C",
-    recordingQuality: "Ultra (96 kHz)",
-    bitDepth: "24-bit",
-    fileFormat: "WAV",
-    fileSize: "4.2 MB",
-    environment: "Clinic Room B",
-    noiseLevel: "Very Low"
-  }
-}];
 
 const PatientDetail = () => {
   const {
@@ -116,30 +55,33 @@ const PatientDetail = () => {
   const { toast } = useToast();
   const { t } = useI18n();
   const initialTab = searchParams.get('tab') || 'recordings';
-  const [selectedRecording, setSelectedRecording] = useState<number | null>(null);
-  const [recordingNotes, setRecordingNotes] = useState<{
-    [key: number]: string;
-  }>(Object.fromEntries(recordings.map(r => [r.id, r.notes])));
-  const [classifications, setClassifications] = useState<{
-    [key: number]: string;
-  }>(Object.fromEntries(recordings.map(r => [r.id, r.classification])));
-  const [recordingTags, setRecordingTags] = useState<{
-    [key: number]: string[];
-  }>({
-    1: ["stenosis", "turbulent flow"],
-    2: ["clear", "normal flow"],
-    3: ["irregular", "requires monitoring"]
+
+  const { data: study, isLoading: studyLoading, error: studyError } = useQuery({
+    queryKey: ["study", id],
+    queryFn: () => fetchStudy(id!),
+    enabled: !!id,
   });
+
+  const [recordingsPage, setRecordingsPage] = useState(1);
+  const recordingsLimit = 20;
+
+  const { data: recordingsData, isLoading: recordingsLoading } = useRecordings(recordingsPage, recordingsLimit);
+
+  const recordings = recordingsData?.data.filter(r => r.studyId === study?.studyId) ?? [];
+  const totalPages = recordingsData?.totalPages ?? 1;
+
+  const updateRecording = useUpdateRecording();
+
+  const [selectedRecording, setSelectedRecording] = useState<string | null>(null);
+  const [recordingNotes, setRecordingNotes] = useState<{ [key: string]: string }>({});
+  const [classifications, setClassifications] = useState<{ [key: string]: RecordingClassification | null }>({});
+  const [recordingTags, setRecordingTags] = useState<{ [key: string]: string[] }>({});
   const [availableTags] = useState<string[]>(["stenosis", "turbulent flow", "clear", "normal flow", "irregular", "requires monitoring", "thrill present", "bruit detected", "weak signal", "excellent flow"]);
   const [newTag, setNewTag] = useState("");
-  const [reviewedStatus, setReviewedStatus] = useState<{
-    [key: number]: boolean;
-  }>(Object.fromEntries(recordings.map(r => [r.id, r.reviewed])));
-  const [flaggedStatus, setFlaggedStatus] = useState<{
-    [key: number]: boolean;
-  }>(Object.fromEntries(recordings.map(r => [r.id, r.flaggedForReview])));
+  const [reviewedStatus, setReviewedStatus] = useState<{ [key: string]: boolean }>({});
+  const [flaggedStatus, setFlaggedStatus] = useState<{ [key: string]: boolean }>({});
 
-  const handleToggleFlag = (recordingId: number, e: React.MouseEvent) => {
+  const handleToggleFlag = (recordingId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setFlaggedStatus(prev => ({
       ...prev,
@@ -155,6 +97,7 @@ const PatientDetail = () => {
   // Patient info editing state
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editedPatientData, setEditedPatientData] = useState(patientData);
+  const displayStudyId = study?.studyId ?? "";
   const [tempValue, setTempValue] = useState("");
   const [previousValue, setPreviousValue] = useState("");
   const [previousField, setPreviousField] = useState<string | null>(null);
@@ -162,14 +105,15 @@ const PatientDetail = () => {
   const editContainerRef = useRef<HTMLDivElement>(null);
 
   // Audio playback state
-  const [playingRecording, setPlayingRecording] = useState<number | null>(null);
+  const [playingRecording, setPlayingRecording] = useState<string | null>(null);
   const [playbackProgress, setPlaybackProgress] = useState<{
-    [key: number]: number;
+    [key: string]: number;
   }>({});
   const playbackIntervalRef = useRef<{
-    [key: number]: NodeJS.Timeout;
+    [key: string]: NodeJS.Timeout;
   }>({});
-  const handleAddTag = (recordingId: number) => {
+
+  const handleAddTag = (recordingId: string) => {
     if (newTag.trim()) {
       setRecordingTags({
         ...recordingTags,
@@ -178,13 +122,13 @@ const PatientDetail = () => {
       setNewTag("");
     }
   };
-  const handleRemoveTag = (recordingId: number, tagToRemove: string) => {
+  const handleRemoveTag = (recordingId: string, tagToRemove: string) => {
     setRecordingTags({
       ...recordingTags,
       [recordingId]: (recordingTags[recordingId] || []).filter(tag => tag !== tagToRemove)
     });
   };
-  const handlePlayPause = (recordingId: number) => {
+  const handlePlayPause = (recordingId: string) => {
     if (playingRecording === recordingId) {
       // Pause
       setPlayingRecording(null);
@@ -195,8 +139,8 @@ const PatientDetail = () => {
     } else {
       // Stop other recordings
       Object.keys(playbackIntervalRef.current).forEach(key => {
-        clearInterval(playbackIntervalRef.current[parseInt(key)]);
-        delete playbackIntervalRef.current[parseInt(key)];
+        clearInterval(playbackIntervalRef.current[key]);
+        delete playbackIntervalRef.current[key];
       });
 
       // Start playing
@@ -236,7 +180,7 @@ const PatientDetail = () => {
       }, updateInterval);
     }
   };
-  const handleRestart = (recordingId: number) => {
+  const handleRestart = (recordingId: string) => {
     // Stop any current playback
     if (playbackIntervalRef.current[recordingId]) {
       clearInterval(playbackIntervalRef.current[recordingId]);
@@ -276,7 +220,7 @@ const PatientDetail = () => {
       });
     }, updateInterval);
   };
-  const handleSeek = (recordingId: number, progress: number) => {
+  const handleSeek = (recordingId: string, progress: number) => {
     setPlaybackProgress({
       ...playbackProgress,
       [recordingId]: progress
@@ -374,6 +318,19 @@ const PatientDetail = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [editingField, tempValue, previousValue]);
+  if (studyLoading) {
+    return <div className="flex items-center justify-center py-12 text-muted-foreground">Loading...</div>;
+  }
+
+  if (studyError || !study) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+        <p>Failed to load patient.</p>
+        <p className="text-xs mt-2">{(studyError as Error)?.message}</p>
+      </div>
+    );
+  }
+
   return <div className="space-y-6">
     <div className="flex items-center gap-3">
       <Button variant="outline" onClick={() => navigate("/patients")} className="h-10 w-10 rounded-full p-0">
@@ -389,11 +346,11 @@ const PatientDetail = () => {
         <AvatarFallback style={{
           backgroundColor: editedPatientData.avatarColor
         }} className="text-white font-semibold text-xl">
-          {getInitials(editedPatientData.studyId)}
+          {getInitials(displayStudyId)}
         </AvatarFallback>
       </Avatar>
       <h2 className="text-3xl font-bold tracking-tight text-foreground">
-        {editedPatientData.studyId}
+        {displayStudyId}
       </h2>
     </div>
 
@@ -460,21 +417,8 @@ const PatientDetail = () => {
                     <div className="text-muted-foreground">
                       {t("patientDetail.info.patient.studyId")}
                     </div>
-                    <div className="group relative flex items-center gap-2" ref={editingField === "studyId" ? editContainerRef : null}>
-                      {editingField === "studyId" ? <>
-                        <Input ref={inputRef} value={tempValue} onChange={e => setTempValue(e.target.value)} className="flex-1" autoFocus />
-                        <Button size="sm" variant="ghost" onClick={() => handleSaveField("studyId")} className="h-8 w-8 p-0">
-                          <Check className="h-4 w-4 text-success" />
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={handleDiscardField} className="h-8 w-8 p-0">
-                          <X className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </> : <>
-                        <span className="text-foreground font-medium">{editedPatientData.studyId}</span>
-                        <Button size="sm" variant="ghost" onClick={() => handleEditField("studyId", editedPatientData.studyId)} className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Edit3 className="h-3 w-3" />
-                        </Button>
-                      </>}
+                    <div className="flex items-center">
+                      <span className="text-foreground font-medium">{displayStudyId}</span>
                     </div>
 
                     {/* Phone */}
@@ -886,79 +830,125 @@ const PatientDetail = () => {
       </TabsContent>
 
       <TabsContent value="recordings" className="space-y-4">
+        {recordingsLoading && (
+          <div className="flex items-center justify-center py-8 text-muted-foreground">Loading recordings...</div>
+        )}
+        {!recordingsLoading && recordings.length === 0 && (
+          <div className="flex items-center justify-center py-8 text-muted-foreground">No recordings yet.</div>
+        )}
         <div className="space-y-4">
-          {recordings.map(recording => <Card key={recording.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={e => {
-            // Don't open panel if clicking the play button
-            const target = e.target as HTMLElement;
-            if (!target.closest('button')) {
-              setSelectedRecording(recording.id);
-            }
-          }}>
-            <CardContent className="pt-6">
-              <div className="space-y-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <Button className="h-12 w-12 rounded-lg p-0" onClick={e => {
-                        e.stopPropagation();
-                        handlePlayPause(recording.id);
-                      }}>
-                        {playingRecording === recording.id ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-10 w-10" onClick={e => {
-                        e.stopPropagation();
-                        handleRestart(recording.id);
-                      }}>
-                        <RotateCcw className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <div>
-                      <p className="font-semibold text-foreground">
-                        {recording.date} at {recording.time}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {Math.round((playbackProgress[recording.id] || 0) * 45)}s / {recording.duration}
-                      </p>
-                    </div>
-                  </div>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={(e) => handleToggleFlag(recording.id, e)}
-                        >
-                          <Flag className={`h-4 w-4 ${flaggedStatus[recording.id] ? "text-warning fill-warning" : "text-muted-foreground"}`} />
+          {recordings.map(recording => {
+            const recordedAt = new Date(recording.createdAt);
+            const dateStr = recordedAt.toLocaleDateString("de-DE");
+            const timeStr = recordedAt.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+            return <Card key={recording.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={e => {
+              const target = e.target as HTMLElement;
+              if (!target.closest('button')) {
+                setSelectedRecording(recording.id);
+              }
+            }}>
+              <CardContent className="pt-6">
+                <div className="space-y-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <Button className="h-12 w-12 rounded-lg p-0" onClick={e => {
+                          e.stopPropagation();
+                          handlePlayPause(recording.id);
+                        }}>
+                          {playingRecording === recording.id ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
                         </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{flaggedStatus[recording.id] ? "Markierung entfernen" : "Zur Überprüfung markieren"}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
+                        <Button variant="ghost" size="icon" className="h-10 w-10" onClick={e => {
+                          e.stopPropagation();
+                          handleRestart(recording.id);
+                        }}>
+                          <RotateCcw className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-foreground">
+                          {dateStr} at {timeStr}
+                        </p>
+                        <p className="text-sm text-muted-foreground font-mono text-xs">
+                          {recording.s3Key}
+                        </p>
+                      </div>
+                    </div>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={(e) => handleToggleFlag(recording.id, e)}
+                          >
+                            <Flag className={`h-4 w-4 ${flaggedStatus[recording.id] ? "text-warning fill-warning" : "text-muted-foreground"}`} />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{flaggedStatus[recording.id] ? "Markierung entfernen" : "Zur Überprüfung markieren"}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
 
-                <div className="h-32 bg-white rounded-lg border border-border overflow-hidden">
-                  <WaveformChart progress={playbackProgress[recording.id] || 0} interactive={true} onSeek={progress => handleSeek(recording.id, progress)} />
-                </div>
+                  <div className="h-32 bg-white rounded-lg border border-border overflow-hidden">
+                    <WaveformChart progress={playbackProgress[recording.id] || 0} interactive={true} onSeek={progress => handleSeek(recording.id, progress)} />
+                  </div>
 
-                <div className="flex items-center gap-2">
-                  <Badge className={classifications[recording.id] === "normal" ? "bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20" : classifications[recording.id] === "abnormal" ? "bg-red-500/10 text-red-600 hover:bg-red-500/20 border-red-500/20" : "bg-yellow-500/10 text-yellow-700 hover:bg-yellow-500/20 border-yellow-500/20"}>
-                    {classifications[recording.id]}
-                  </Badge>
-                </div>
+                  {(() => {
+                    const cls = classifications[recording.id] ?? recording.classification;
+                    if (!cls || cls === "not_classified") return null;
+                    return (
+                      <div className="flex items-center gap-2">
+                        <Badge className={
+                          cls === "normal"
+                            ? "bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20"
+                            : cls === "abnormal"
+                            ? "bg-red-500/10 text-red-600 hover:bg-red-500/20 border-red-500/20"
+                            : "bg-yellow-500/10 text-yellow-700 hover:bg-yellow-500/20 border-yellow-500/20"
+                        }>
+                          {cls}
+                        </Badge>
+                      </div>
+                    );
+                  })()}
 
-                {recordingNotes[recording.id] && <div className="pt-2">
-                  <p className="text-sm text-muted-foreground">
-                    {recordingNotes[recording.id]}
-                  </p>
-                </div>}
-              </div>
-            </CardContent>
-          </Card>)}
+                  {recordingNotes[recording.id] && <div className="pt-2">
+                    <p className="text-sm text-muted-foreground">
+                      {recordingNotes[recording.id]}
+                    </p>
+                  </div>}
+                </div>
+              </CardContent>
+            </Card>;
+          })}
         </div>
+
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-3 pt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setRecordingsPage(p => Math.max(1, p - 1))}
+              disabled={recordingsPage === 1 || recordingsLoading}
+            >
+              Previous
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Page {recordingsPage} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setRecordingsPage(p => Math.min(totalPages, p + 1))}
+              disabled={recordingsPage === totalPages || recordingsLoading}
+            >
+              Next
+            </Button>
+          </div>
+        )}
 
         {/* Recording Detail Side Panel */}
         <Sheet open={selectedRecording !== null} onOpenChange={open => !open && setSelectedRecording(null)}>
@@ -966,6 +956,9 @@ const PatientDetail = () => {
             {selectedRecording && (() => {
               const recording = recordings.find(r => r.id === selectedRecording);
               if (!recording) return null;
+              const recordedAt = new Date(recording.createdAt);
+              const dateStr = recordedAt.toLocaleDateString("de-DE");
+              const timeStr = recordedAt.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
               return <>
                 <SheetHeader>
                   <SheetTitle>{t("patientDetail.recording.detailsTitle")}</SheetTitle>
@@ -974,14 +967,12 @@ const PatientDetail = () => {
                       <AvatarFallback style={{
                         backgroundColor: editedPatientData.avatarColor
                       }} className="text-white font-semibold text-xs">
-                        {getInitials(editedPatientData.studyId)}
+                        {getInitials(displayStudyId)}
                       </AvatarFallback>
                     </Avatar>
-                    <span className="font-medium">{editedPatientData.studyId}</span>
+                    <span className="font-medium">{displayStudyId}</span>
                     <span className="text-muted-foreground">•</span>
-                    <span>
-                      {recording.date} {recording.time} • {t("patientDetail.recording.vascularAccess.lastReview")} {recording.duration}
-                    </span>
+                    <span>{dateStr} {timeStr}</span>
                   </SheetDescription>
                 </SheetHeader>
 
@@ -1010,7 +1001,7 @@ const PatientDetail = () => {
                         <RotateCcw className="h-3 w-3" />
                       </Button>
                       <span className="text-sm text-muted-foreground">
-                        {Math.round((playbackProgress[recording.id] || 0) * 45)}s / 45s
+                        {Math.round((playbackProgress[recording.id] || 0) * 45)}s
                       </span>
                     </div>
                   </div>
@@ -1018,12 +1009,16 @@ const PatientDetail = () => {
                   {/* Classification */}
                   <div className="space-y-2">
                     <Label>{t("patientDetail.recording.classification")}</Label>
-                    <Select value={classifications[recording.id]} onValueChange={value => setClassifications({
-                      ...classifications,
-                      [recording.id]: value
-                    })}>
+                    <Select
+                      value={(recording.id in classifications ? classifications[recording.id] : recording.classification) ?? ""}
+                      onValueChange={value => {
+                        const cls = value as RecordingClassification;
+                        setClassifications({ ...classifications, [recording.id]: cls });
+                        updateRecording.mutate({ id: recording.id, dto: { classification: cls } });
+                      }}
+                    >
                       <SelectTrigger>
-                        <SelectValue />
+                        <SelectValue placeholder="—" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="normal">
@@ -1035,6 +1030,14 @@ const PatientDetail = () => {
                           <Badge className="bg-red-500/10 text-red-600 hover:bg-red-500/20 border-red-500/20">
                             {t("home.recording.classification.abnormal")}
                           </Badge>
+                        </SelectItem>
+                        <SelectItem value="unclear">
+                          <Badge className="bg-yellow-500/10 text-yellow-700 hover:bg-yellow-500/20 border-yellow-500/20">
+                            Unclear
+                          </Badge>
+                        </SelectItem>
+                        <SelectItem value="not_classified">
+                          <span className="text-muted-foreground">Not classified</span>
                         </SelectItem>
                       </SelectContent>
                     </Select>
@@ -1084,13 +1087,20 @@ const PatientDetail = () => {
                   <div className="space-y-2">
                     <Label>{t("patientDetail.recording.notesLabel")}</Label>
                     <Textarea
-                      value={recordingNotes[recording.id]}
+                      value={recording.id in recordingNotes ? recordingNotes[recording.id] : (recording.note ?? "")}
                       onChange={e =>
                         setRecordingNotes({
                           ...recordingNotes,
                           [recording.id]: e.target.value
                         })
                       }
+                      onBlur={() => {
+                        const note = recording.id in recordingNotes ? recordingNotes[recording.id] : (recording.note ?? "");
+                        updateRecording.mutate({
+                          id: recording.id,
+                          dto: { note: note || null },
+                        });
+                      }}
                       placeholder={t("patientDetail.recording.notesPlaceholder")}
                       rows={4}
                       className="bg-background"
@@ -1101,37 +1111,17 @@ const PatientDetail = () => {
                   <div className="mt-8 pt-6 border-t">
                     <h3 className="font-semibold text-foreground mb-3">Recording Data</h3>
                     <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Device Type:</span>
-                        <span className="font-medium">{recording.recordingData.deviceType}</span>
+                      <div className="flex justify-between gap-4">
+                        <span className="text-muted-foreground shrink-0">Device Model:</span>
+                        <span className="font-mono text-xs break-all text-right">{recording.metadata.deviceModel}</span>
+                      </div>
+                      <div className="flex justify-between gap-4">
+                        <span className="text-muted-foreground shrink-0">S3 Key:</span>
+                        <span className="font-mono text-xs break-all text-right">{recording.s3Key}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Microphone Type:</span>
-                        <span className="font-medium">{recording.recordingData.microphoneType}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Recording Quality:</span>
-                        <span className="font-medium">{recording.recordingData.recordingQuality}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Bit Depth:</span>
-                        <span className="font-medium">{recording.recordingData.bitDepth}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">File Format:</span>
-                        <span className="font-medium">{recording.recordingData.fileFormat}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">File Size:</span>
-                        <span className="font-medium">{recording.recordingData.fileSize}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Environment:</span>
-                        <span className="font-medium">{recording.recordingData.environment}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Noise Level:</span>
-                        <span className="font-medium">{recording.recordingData.noiseLevel}</span>
+                        <span className="text-muted-foreground">Uploaded:</span>
+                        <span className="font-medium">{new Date(recording.createdAt).toLocaleString("de-DE")}</span>
                       </div>
                     </div>
                   </div>
@@ -1164,7 +1154,7 @@ const PatientDetail = () => {
                         <span className="text-muted-foreground">
                           {t("patientDetail.recording.vascularAccess.lastReview")}
                         </span>
-                        <span className="font-medium">{recording.date}</span>
+                        <span className="font-medium">{dateStr}</span>
                       </div>
                     </div>
                   </div>
@@ -1175,8 +1165,8 @@ const PatientDetail = () => {
                   <Button
                     size="lg"
                     className={`w-full gap-2 text-base font-semibold ${reviewedStatus[recording.id]
-                        ? "bg-green-600 hover:bg-green-700 text-white"
-                        : "bg-primary hover:bg-primary/90"
+                      ? "bg-green-600 hover:bg-green-700 text-white"
+                      : "bg-primary hover:bg-primary/90"
                       }`}
                     onClick={() => {
                       setReviewedStatus({

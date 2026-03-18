@@ -32,5 +32,11 @@ coverage/
 *.tgz
 .npm
 
+# Turborepo
+.turbo
+
+# pnpm
+pnpm-debug.log*
+
 .claude/
 CLAUDE.md

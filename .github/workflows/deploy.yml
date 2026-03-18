@@ -65,7 +65,7 @@ jobs:
       - name: Build and push backend image
         uses: docker/build-push-action@v6
         with:
-          context: packages/backend
+          context: .
           file: packages/backend/Dockerfile
           target: production
           push: true
@@ -80,7 +80,7 @@ jobs:
       - name: Build and push dashboard image
         uses: docker/build-push-action@v6
         with:
-          context: packages/dashboard
+          context: .
           file: packages/dashboard/Dockerfile
           push: true
           platforms: linux/arm64

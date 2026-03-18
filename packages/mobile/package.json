@@ -1,5 +1,5 @@
 {
-  "name": "shunt-wizard",
+  "name": "mobile",
   "main": "expo-router/entry",
   "version": "1.0.0",
   "build": "5",
@@ -9,9 +9,10 @@
     "android": "expo run:android",
     "ios": "expo run:ios --device",
     "web": "expo start --web",
-    "test": "jest --watchAll",
+    "test": "jest",
+    "test:watch": "jest --watchAll",
     "lint": "expo lint",
-    "postinstall": "patch-package"
+    "dev": "expo start"
   },
   "jest": {
     "preset": "jest-expo"
@@ -19,7 +20,7 @@
   "dependencies": {
     "@dr.pogodin/react-native-audio": "^1.13.0",
     "@expo-google-fonts/source-sans-pro": "^0.2.3",
-    "@expo/vector-icons": "^14.0.2",
+    "@expo/vector-icons": "^14.0.4",
     "@react-native-community/netinfo": "^11.4.1",
     "@react-navigation/bottom-tabs": "^7.2.0",
     "@react-navigation/native": "^7.0.14",
@@ -38,7 +39,6 @@
     "expo-symbols": "~0.2.2",
     "expo-system-ui": "~4.0.9",
     "expo-web-browser": "~14.0.2",
-    "patch-package": "^8.0.0",
     "react": "^18.3.1",
     "react-dom": "18.3.1",
     "react-native": "^0.76.8",

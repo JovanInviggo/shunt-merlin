@@ -1,0 +1,36 @@
+diff --git a/android/src/main/java/com/drpogodin/reactnativeaudio/ReactNativeAudioPackage.kt b/android/src/main/java/com/drpogodin/reactnativeaudio/ReactNativeAudioPackage.kt
+index 175de521b0b50f27fd77bbc30ccd441309c6b037..ce91701f8ec0921b6c66e99313769850faea1287 100644
+--- a/android/src/main/java/com/drpogodin/reactnativeaudio/ReactNativeAudioPackage.kt
++++ b/android/src/main/java/com/drpogodin/reactnativeaudio/ReactNativeAudioPackage.kt
+@@ -24,6 +24,7 @@ class ReactNativeAudioPackage : BaseReactPackage() {
+         ReactNativeAudioModule.NAME,
+         canOverrideExistingModule = false,  // canOverrideExistingModule
+         needsEagerInit = false,  // needsEagerInit
++        hasConstants = false,
+         isCxxModule = false,  // isCxxModule
+         isTurboModule = true // isTurboModule
+       )
+diff --git a/src/NativeReactNativeAudio.ts b/src/NativeReactNativeAudio.ts
+index 5b9b1197dcc2294819ebde6d36ea384c44057270..8866832aeeb2441ca7e23c9c0e90cf3a7797d40d 100644
+--- a/src/NativeReactNativeAudio.ts
++++ b/src/NativeReactNativeAudio.ts
+@@ -1,5 +1,5 @@
+ import {
+-  type CodegenTypes,
++  EventEmitter,
+   type TurboModule,
+   TurboModuleRegistry,
+ } from 'react-native';
+@@ -61,9 +61,9 @@ export interface Spec extends TurboModule {
+ 
+   muteInputStream(streamId: number, muted: boolean): void;
+ 
+-  readonly onAudioChunk: CodegenTypes.EventEmitter<AudioChunkEventT>;
+-  readonly onInputAudioStreamError: CodegenTypes.EventEmitter<InputAudioStreamErrorEventT>;
+-  readonly onSamplePlayerError: CodegenTypes.EventEmitter<SamplePlayerErrorEventT>;
++  readonly onAudioChunk: EventEmitter<AudioChunkEventT>;
++  readonly onInputAudioStreamError: EventEmitter<InputAudioStreamErrorEventT>;
++  readonly onSamplePlayerError: EventEmitter<SamplePlayerErrorEventT>;
+ 
+   unlisten(streamId: number): Promise<void>;
+ 

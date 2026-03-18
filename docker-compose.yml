@@ -17,7 +17,8 @@ services:
 
     backend:
         build:
-            context: ./packages/backend
+            context: .
+            dockerfile: packages/backend/Dockerfile
             target: development
         ports:
             - '3000:3000'
@@ -32,7 +33,7 @@ services:
             JWT_ACCESS_EXPIRATION: 15m
             ALLOWED_ORIGINS: http://localhost:5173
         volumes:
-            - ./packages/backend:/app
+            - .:/app
             - /app/node_modules
         depends_on:
             postgres:

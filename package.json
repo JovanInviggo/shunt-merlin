@@ -1,21 +1,24 @@
 {
-  "name": "shunt-wizzard",
+  "name": "shunt-merlin",
   "version": "1.0.0",
-  "description": "Shunt Wizard Monorepo",
+  "description": "ShuntMerlin Monorepo",
   "private": true,
   "workspaces": [
-    "packages/*"
+    "packages/backend",
+    "packages/dashboard"
   ],
   "scripts": {
     "dev:backend": "npm run start:dev -w backend",
     "dev:dashboard": "npm run dev -w dashboard",
+    "dev:mobile": "cd packages/mobile && yarn start",
     "build": "npm run build -w backend && npm run build -w dashboard",
     "build:backend": "npm run build -w backend",
     "build:dashboard": "npm run build -w dashboard",
     "start:prod": "npm run start:prod -w backend",
     "seed": "npm run seed -w backend",
     "test": "npm run test -w backend",
-    "lint": "npm run lint -w backend && npm run lint -w dashboard",
+    "test:mobile": "cd packages/mobile && yarn test",
+    "lint": "npm run lint -w backend && npm run lint -w dashboard && cd packages/mobile && yarn lint",
     "docker:up": "docker-compose up",
     "docker:up:build": "docker-compose up --build",
     "docker:down": "docker-compose down",

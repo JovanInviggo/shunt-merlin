@@ -1,4 +1,4 @@
-FROM node:20-alpine AS build
+FROM node:20-slim AS build
 RUN corepack enable && corepack prepare pnpm@10.32.1 --activate
 
 WORKDIR /app
@@ -19,7 +19,7 @@ RUN pnpm --filter=dashboard run build
 
 # ---
 
-FROM nginx:1.27-alpine
+FROM nginx:1.27
 
 COPY --from=build /app/packages/dashboard/dist /usr/share/nginx/html
 COPY --from=build /app/packages/dashboard/nginx.conf /etc/nginx/conf.d/default.conf

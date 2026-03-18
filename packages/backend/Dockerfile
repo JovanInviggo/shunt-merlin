@@ -16,13 +16,6 @@ WORKDIR /app/packages/backend
 ENTRYPOINT ["sh", "./entrypoint.sh"]
 CMD ["pnpm", "run", "start:dev"]
 
-# Production deps stage — only prod dependencies, cached independently from build
-FROM base AS deps
-
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
-COPY packages/backend/package.json ./packages/backend/
-RUN pnpm install --frozen-lockfile --prod --filter=backend
-
 # Build stage
 FROM base AS build
 
@@ -33,11 +26,11 @@ RUN pnpm install --frozen-lockfile --filter=backend
 COPY packages/backend ./packages/backend
 RUN pnpm --filter=backend run build
 
-# Production stage — minimal image, no dev deps, no source
+# Production stage — node_modules from build stage, dist from compile
 FROM node:20-slim AS production
 
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/packages/backend/dist ./dist
 
 CMD ["node", "dist/main"]

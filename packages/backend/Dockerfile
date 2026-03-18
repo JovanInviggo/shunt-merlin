@@ -5,7 +5,7 @@ WORKDIR /app
 # Development stage — used by docker-compose with volume mounts
 FROM base AS development
 
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY .npmrc package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY packages/backend/package.json ./packages/backend/
 RUN pnpm install --frozen-lockfile
 
@@ -19,14 +19,14 @@ CMD ["pnpm", "run", "start:dev"]
 # Production deps stage — only prod dependencies, cached independently from build
 FROM base AS deps
 
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY .npmrc package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY packages/backend/package.json ./packages/backend/
 RUN pnpm install --frozen-lockfile --prod --filter=backend
 
 # Build stage
 FROM base AS build
 
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY .npmrc package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY packages/backend/package.json ./packages/backend/
 RUN pnpm install --frozen-lockfile --filter=backend
 

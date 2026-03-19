@@ -47,7 +47,6 @@ export default function RecordScreen() {
   const { t } = useI18n();
   const [currentStudyId, setCurrentStudyId] = useState(params.studyId || "");
   const [showPhonePosition, setShowPhonePosition] = useState(true);
-  const [micPermissionGranted, setMicPermissionGranted] = useState(true);
   const [cancelled, setCancelled] = useState(false);
   const [recordingComplete, setRecordingComplete] = useState(false);
   const [showLowSignal, setShowLowSignal] = useState(false);
@@ -69,15 +68,17 @@ export default function RecordScreen() {
     }
   }, []);
 
-  // Check microphone permission on mount and whenever the app comes back to the foreground
+  // Keep permission status fresh — re-check whenever the app comes back to the foreground
+  // so that returning from Settings takes effect on the next tap without showing an alert.
+  const micPermissionRef = useRef<string | null>(null);
   useEffect(() => {
     const permission = Platform.OS === "ios" ? PERMISSIONS.IOS.MICROPHONE : PERMISSIONS.ANDROID.RECORD_AUDIO;
     const checkPermission = async () => {
       try {
         const result = await check(permission);
-        setMicPermissionGranted(result === RESULTS.GRANTED || result === RESULTS.LIMITED);
+        micPermissionRef.current = result;
       } catch {
-        setMicPermissionGranted(false);
+        micPermissionRef.current = null;
       }
     };
 
@@ -189,36 +190,35 @@ export default function RecordScreen() {
     router.replace("/record");
   }, []);
 
+  const showMicAlert = () => {
+    Alert.alert(
+      t.record.micPermissionTitle,
+      t.record.micPermissionMessage,
+      [
+        { text: t.common.cancel, style: "cancel" },
+        { text: t.record.micPermissionOpenSettings, onPress: () => Linking.openSettings() },
+      ]
+    );
+  };
+
   const handleStartFromPhonePosition = async () => {
     try {
       const permission = Platform.OS === "ios" ? PERMISSIONS.IOS.MICROPHONE : PERMISSIONS.ANDROID.RECORD_AUDIO;
-      let result = await check(permission);
+      let result = micPermissionRef.current ?? await check(permission);
 
       if (result === RESULTS.DENIED) {
         result = await request(permission);
       }
 
+      micPermissionRef.current = result;
+
       if (result !== RESULTS.GRANTED && result !== RESULTS.LIMITED) {
-        Alert.alert(
-          t.record.micPermissionTitle,
-          t.record.micPermissionMessage,
-          [
-            { text: t.common.cancel, style: "cancel" },
-            { text: t.record.micPermissionOpenSettings, onPress: () => Linking.openSettings() },
-          ]
-        );
+        showMicAlert();
         return;
       }
     } catch (e) {
       console.error("Microphone permission check failed:", e);
-      Alert.alert(
-        t.record.micPermissionTitle,
-        t.record.micPermissionMessage,
-        [
-          { text: t.common.cancel, style: "cancel" },
-          { text: t.record.micPermissionOpenSettings, onPress: () => Linking.openSettings() },
-        ]
-      );
+      showMicAlert();
       return;
     }
 

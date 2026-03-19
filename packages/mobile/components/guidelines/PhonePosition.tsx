@@ -19,8 +19,6 @@ export default function PhonePosition({
     moreInfo = false,
     showCancelButton = false,
     onCancelPress,
-    disabled = false,
-    disabledHint,
 }: {
     buttonText: string;
     onButtonPress: () => void;
@@ -28,8 +26,6 @@ export default function PhonePosition({
     moreInfo?: boolean;
     showCancelButton?: boolean;
     onCancelPress?: () => void;
-    disabled?: boolean;
-    disabledHint?: string;
 }) {
     const { t } = useI18n();
     const router = useRouter();
@@ -56,16 +52,9 @@ export default function PhonePosition({
                     <Text style={styles.buttonText}>{t.guideline.viewFullInstructions}</Text>
                 </TouchableOpacity>
             </View>
-            <TouchableOpacity
-                style={[styles.button, disabled && styles.buttonDisabled]}
-                onPress={onButtonPress}
-                disabled={disabled}
-            >
-                <Text style={[styles.buttonText, disabled && styles.buttonTextDisabled]}>{buttonText}</Text>
+            <TouchableOpacity style={styles.button} onPress={onButtonPress}>
+                <Text style={styles.buttonText}>{buttonText}</Text>
             </TouchableOpacity>
-            {disabled && disabledHint && (
-                <Text style={styles.disabledHint}>{disabledHint}</Text>
-            )}
         </SafeAreaView>
     );
 }
@@ -96,25 +85,12 @@ const styles = StyleSheet.create({
         alignItems: "center",
         width: "80%",
         alignSelf: "center",
-        marginBottom: 8,
-    },
-    buttonDisabled: {
-        backgroundColor: "#FFFFFF60",
+        marginBottom: 24,
     },
     buttonText: {
         color: Colors.guidelineText,
         fontSize: 20,
         fontFamily: Fonts.bold,
-    },
-    buttonTextDisabled: {
-        color: Colors.guidelineText + "80",
-    },
-    disabledHint: {
-        fontSize: 13,
-        color: Colors.guidelineTextDark,
-        textAlign: "center",
-        marginBottom: 24,
-        paddingHorizontal: 24,
     },
     skipButton: {
         fontSize: 16,

@@ -4,7 +4,6 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import * as Haptics from "expo-haptics";
 import {
   Alert,
-  AppState,
   Linking,
   Platform,
   StyleSheet,
@@ -13,7 +12,7 @@ import {
   View,
   Animated,
 } from "react-native";
-import { check, request, PERMISSIONS, RESULTS } from "react-native-permissions";
+import { Audio } from "expo-av";
 import { Text } from "../components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LiveWaveform } from "../components/live-waveform";
@@ -68,26 +67,7 @@ export default function RecordScreen() {
     }
   }, []);
 
-  // Keep permission status fresh — re-check whenever the app comes back to the foreground
-  // so that returning from Settings takes effect on the next tap without showing an alert.
-  const micPermissionRef = useRef<string | null>(null);
-  useEffect(() => {
-    const permission = Platform.OS === "ios" ? PERMISSIONS.IOS.MICROPHONE : PERMISSIONS.ANDROID.RECORD_AUDIO;
-    const checkPermission = async () => {
-      try {
-        const result = await check(permission);
-        micPermissionRef.current = result;
-      } catch {
-        micPermissionRef.current = null;
-      }
-    };
-
-    checkPermission();
-    const subscription = AppState.addEventListener("change", (state) => {
-      if (state === "active") checkPermission();
-    });
-    return () => subscription.remove();
-  }, []);
+  const isCheckingPermissionRef = useRef(false);
 
   const queueAndGoHome = useCallback(async (
     path: string,
@@ -179,6 +159,13 @@ export default function RecordScreen() {
   const vibrateAndStartRecording = async () => {
     hasQueuedRef.current = false;
     await strongVibrate();
+    // Wait for the physical vibration to fully stop before opening the mic.
+    // Android: Vibration.vibrate() is fire-and-forget — the pattern [0,250,80,250]
+    //   runs for 580 ms after the call returns, so we wait long enough to clear it.
+    // iOS: impactAsync() resolves when the API call completes, but the taptic
+    //   motor keeps buzzing for a short time — a brief settle delay is enough.
+    const settleMs = Platform.OS === "android" ? 800 : 200;
+    await new Promise((r) => setTimeout(r, settleMs));
     startRecording();
   };
 
@@ -202,24 +189,30 @@ export default function RecordScreen() {
   };
 
   const handleStartFromPhonePosition = async () => {
+    if (isCheckingPermissionRef.current) return;
+    isCheckingPermissionRef.current = true;
+
     try {
-      const permission = Platform.OS === "ios" ? PERMISSIONS.IOS.MICROPHONE : PERMISSIONS.ANDROID.RECORD_AUDIO;
-      let result = micPermissionRef.current ?? await check(permission);
+      const { granted, canAskAgain } = await Audio.getPermissionsAsync();
 
-      if (result === RESULTS.DENIED) {
-        result = await request(permission);
-      }
-
-      micPermissionRef.current = result;
-
-      if (result !== RESULTS.GRANTED && result !== RESULTS.LIMITED) {
-        showMicAlert();
-        return;
+      if (!granted) {
+        if (canAskAgain) {
+          const { granted: newGranted } = await Audio.requestPermissionsAsync();
+          if (!newGranted) {
+            showMicAlert();
+            return;
+          }
+        } else {
+          showMicAlert();
+          return;
+        }
       }
     } catch (e) {
       console.error("Microphone permission check failed:", e);
       showMicAlert();
       return;
+    } finally {
+      isCheckingPermissionRef.current = false;
     }
 
     Animated.timing(phoneOverlayAnim, {
@@ -286,7 +279,7 @@ export default function RecordScreen() {
             style={styles.container}
             edges={["top", "left", "right", "bottom"]}
           >
-            <TouchableOpacity onPress={cancelRecordingAlert} style={styles.closeButton}>
+            <TouchableOpacity onPress={recordingComplete ? () => router.replace("/") : cancelRecordingAlert} style={styles.closeButton}>
               <Ionicons name="close" size={18} style={styles.closeButtonIcon} />
             </TouchableOpacity>
 

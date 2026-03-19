@@ -49,22 +49,23 @@ jest.mock("../locales", () => ({
     language: "en",
     setLanguage: jest.fn(),
   }),
-  interpolate: (text: string, params: Record<string, any>) =>
+  interpolate: (text, params) =>
     text.replace(/\{\{(\w+)\}\}/g, (_, k) => params[k]?.toString() ?? `{{${k}}}`),
 }));
 
-jest.mock("react-native-permissions", () => ({
-  check: jest.fn().mockResolvedValue("granted"),
-  request: jest.fn().mockResolvedValue("granted"),
-  PERMISSIONS: { IOS: { MICROPHONE: "ios.permission.MICROPHONE" }, ANDROID: { RECORD_AUDIO: "android.permission.RECORD_AUDIO" } },
-  RESULTS: { GRANTED: "granted", DENIED: "denied", BLOCKED: "blocked", LIMITED: "limited", UNAVAILABLE: "unavailable" },
+jest.mock("expo-av", () => ({
+  Audio: {
+    getPermissionsAsync: jest.fn().mockResolvedValue({ granted: true, canAskAgain: true }),
+    requestPermissionsAsync: jest.fn().mockResolvedValue({ granted: true }),
+    setAudioModeAsync: jest.fn().mockResolvedValue(undefined),
+  },
 }));
 
 jest.mock("react-native-safe-area-context", () => {
   const React = require("react");
   const { View } = require("react-native");
   return {
-    SafeAreaView: ({ children, ...rest }: any) => <View {...rest}>{children}</View>,
+    SafeAreaView: ({ children, ...rest }) => React.createElement(View, rest, children),
     useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
   };
 });
@@ -72,37 +73,35 @@ jest.mock("react-native-safe-area-context", () => {
 jest.mock("@/components/guidelines/PhonePosition", () => {
   const React = require("react");
   const { TouchableOpacity, Text } = require("react-native");
-  return ({ onButtonPress, onCancelPress }: any) => (
-    <TouchableOpacity testID="phone-position-button" onPress={onButtonPress}>
-      <Text>Start Recording</Text>
-    </TouchableOpacity>
-  );
+  return ({ onButtonPress }) =>
+    React.createElement(TouchableOpacity, { testID: "phone-position-button", onPress: onButtonPress },
+      React.createElement(Text, null, "Start Recording")
+    );
 });
 
 jest.mock("@/components/timers", () => {
   const React = require("react");
   const { TouchableOpacity, Text } = require("react-native");
   return {
-    CountdownTimer: ({ onComplete }: any) => (
-      <TouchableOpacity testID="countdown-complete-btn" onPress={onComplete}>
-        <Text>Countdown</Text>
-      </TouchableOpacity>
-    ),
-    ProgressTimer: () => <Text testID="progress-timer">00:00</Text>,
+    CountdownTimer: ({ onComplete }) =>
+      React.createElement(TouchableOpacity, { testID: "countdown-complete-btn", onPress: onComplete },
+        React.createElement(Text, null, "Countdown")
+      ),
+    ProgressTimer: () => React.createElement(Text, { testID: "progress-timer" }, "00:00"),
   };
 });
 
 jest.mock("../components/LowSignalOverlay", () => {
   const React = require("react");
   const { TouchableOpacity, Text, View } = require("react-native");
-  return ({ visible, onRetry }: any) =>
-    visible ? (
-      <View testID="low-signal-overlay">
-        <TouchableOpacity testID="low-signal-retry-btn" onPress={onRetry}>
-          <Text>Retry</Text>
-        </TouchableOpacity>
-      </View>
-    ) : null;
+  return ({ visible, onRetry }) =>
+    visible
+      ? React.createElement(View, { testID: "low-signal-overlay" },
+          React.createElement(TouchableOpacity, { testID: "low-signal-retry-btn", onPress: onRetry },
+            React.createElement(Text, null, "Retry")
+          )
+        )
+      : null;
 });
 
 jest.mock("../components/live-waveform", () => ({
@@ -130,7 +129,7 @@ import RecordScreen from "../app/record";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const buildMockHook = (overrides: Partial<ReturnType<typeof useAudioRecording>> = {}) => ({
+const buildMockHook = (overrides = {}) => ({
   isRecording: false,
   duration: 0,
   recordingPath: null,
@@ -143,7 +142,7 @@ const buildMockHook = (overrides: Partial<ReturnType<typeof useAudioRecording>> 
   ...overrides,
 });
 
-const getHookMock = () => useAudioRecording as jest.Mock;
+const getHookMock = () => /** @type {jest.Mock} */ (useAudioRecording);
 const getLastHookOptions = () => getHookMock().mock.calls.at(-1)?.[0];
 
 /**
@@ -229,10 +228,29 @@ describe("countdown completion triggers recording", () => {
 
     // Press countdown complete — this triggers vibrateAndStartRecording (async with setTimeout)
     fireEvent.press(screen.getByTestId("countdown-complete-btn"));
-    // Flush the strongVibrate setTimeout(80ms) calls + microtasks
+    // Flush the strongVibrate setTimeout(80ms) calls + settle delay (200ms iOS) + microtasks
     await act(async () => { await flushTimersAndMicrotasks(1000); });
 
     expect(Haptics.impactAsync).toHaveBeenCalled();
+    expect(mockStart).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not call startRecording before the vibration settle delay elapses", async () => {
+    const mockStart = jest.fn().mockResolvedValue(undefined);
+    getHookMock().mockReturnValue(buildMockHook({ startRecording: mockStart }));
+
+    render(<RecordScreen />);
+    await act(async () => { await flushTimersAndMicrotasks(); });
+    await act(async () => { fireEvent.press(screen.getByTestId("phone-position-button")); });
+
+    fireEvent.press(screen.getByTestId("countdown-complete-btn"));
+    // Advance only through haptic calls (3×80ms = 240ms) but not past the 200ms settle delay
+    await act(async () => { await flushTimersAndMicrotasks(200); });
+
+    expect(mockStart).not.toHaveBeenCalled();
+
+    // Now flush the remaining settle delay — recording must start
+    await act(async () => { await flushTimersAndMicrotasks(600); });
     expect(mockStart).toHaveBeenCalledTimes(1);
   });
 });
@@ -258,6 +276,26 @@ describe("cancel / stop button", () => {
     const okButton = alertCall[2].find((btn: any) => btn.text === "OK");
     await act(async () => { okButton.onPress(); });
 
+    expect(router.replace).toHaveBeenCalledWith("/");
+  });
+
+  it("navigates directly to / without alert when close is pressed after recording is complete", async () => {
+    render(<RecordScreen />);
+    await act(async () => { await flushTimersAndMicrotasks(); });
+    await dismissPhonePosition();
+
+    const { onAutoStop } = getLastHookOptions();
+    // Trigger auto-stop to set recordingComplete=true (don't wait for the 7s delay)
+    act(() => { onAutoStop("/path/recording.wav"); });
+    await act(async () => { await flushTimersAndMicrotasks(500); });
+
+    // Press close — should navigate home directly, no alert
+    const touchables = screen.UNSAFE_getAllByType(
+      require("react-native").TouchableOpacity
+    );
+    await act(async () => { fireEvent.press(touchables[0]); });
+
+    expect(Alert.alert).not.toHaveBeenCalled();
     expect(router.replace).toHaveBeenCalledWith("/");
   });
 

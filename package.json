@@ -39,7 +39,7 @@
   },
   "devDependencies": {
     "ts-node": "^10.9.2",
-    "turbo": "latest",
+    "turbo": "^2.5.0",
     "typescript": "^5.8.3"
   }
 }

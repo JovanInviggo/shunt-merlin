@@ -1,0 +1,61 @@
+# Version control
+.git
+.gitignore
+
+# Dependencies (installed fresh in Docker)
+node_modules
+**/node_modules
+
+# IDE and editor files
+.vscode
+.idea
+*.swp
+*.swo
+
+# Environment files (secrets must not leak into images)
+.env
+.env.*
+!.env.example
+
+# Documentation and config not needed in builds
+README.md
+CTO_REVIEW.md
+docs
+*.md
+!package.json
+
+# CI/CD
+.github
+
+# Kubernetes manifests
+k8s
+
+# Claude/AI config
+.claude
+
+# Turbo cache
+.turbo
+
+# Mobile app source (but keep package.json for pnpm workspace resolution)
+packages/mobile/android
+packages/mobile/ios
+packages/mobile/app
+packages/mobile/assets
+packages/mobile/components
+packages/mobile/config
+packages/mobile/constants
+packages/mobile/docs
+packages/mobile/hooks
+packages/mobile/locales
+packages/mobile/scripts
+packages/mobile/types
+packages/mobile/utils
+packages/mobile/__tests__
+packages/mobile/*.ts
+packages/mobile/*.js
+packages/mobile/splashscreen_logo.png
+packages/mobile/yarn.lock
+!packages/mobile/package.json
+
+# Build artifacts
+**/dist

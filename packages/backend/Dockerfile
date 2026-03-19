@@ -1,4 +1,4 @@
-FROM node:20-slim AS base
+FROM node:20-alpine AS base
 RUN corepack enable && corepack prepare pnpm@10.32.1 --activate
 WORKDIR /app
 
@@ -43,7 +43,7 @@ COPY packages/backend ./packages/backend
 RUN pnpm --filter=backend run build
 
 # Production stage — minimal image, no dev deps, no source
-FROM node:20-slim AS production
+FROM node:20-alpine AS production
 
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules

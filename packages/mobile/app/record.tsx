@@ -12,7 +12,7 @@ import {
   View,
   Animated,
 } from "react-native";
-import { Audio } from "expo-av";
+import { check, request, PERMISSIONS, RESULTS } from "react-native-permissions";
 import { Text } from "../components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LiveWaveform } from "../components/live-waveform";
@@ -170,8 +170,14 @@ export default function RecordScreen() {
 
   const handleStartFromPhonePosition = async () => {
     try {
-      const { status } = await Audio.requestPermissionsAsync();
-      if (status !== "granted") {
+      const permission = Platform.OS === "ios" ? PERMISSIONS.IOS.MICROPHONE : PERMISSIONS.ANDROID.RECORD_AUDIO;
+      let result = await check(permission);
+
+      if (result === RESULTS.DENIED) {
+        result = await request(permission);
+      }
+
+      if (result !== RESULTS.GRANTED && result !== RESULTS.LIMITED) {
         Alert.alert(
           t.record.micPermissionTitle,
           t.record.micPermissionMessage,

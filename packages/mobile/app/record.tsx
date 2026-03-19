@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import * as Haptics from "expo-haptics";
+import { useKeepAwake } from "expo-keep-awake";
 import {
   Alert,
   Linking,
@@ -42,6 +43,8 @@ const strongVibrate = async () => {
 };
 
 export default function RecordScreen() {
+  useKeepAwake();
+
   const params = useLocalSearchParams<{ studyId?: string }>();
   const { t } = useI18n();
   const [currentStudyId, setCurrentStudyId] = useState(params.studyId || "");

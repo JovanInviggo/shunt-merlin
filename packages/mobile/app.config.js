@@ -16,7 +16,7 @@ const API_BASE_URLS = {
 module.exports = ({ config }) => {
   const profile = process.env.EAS_BUILD_PROFILE || "development";
   const getBundleIdentifier = () => {
-    const baseId = "com.carealytix.ShuntWizard";
+    const baseId = "com.carealytix.ShuntMerlin";
     return profile === "production"
       ? baseId
       : `${baseId}${capitalize(profile)}`;
@@ -52,12 +52,12 @@ module.exports = ({ config }) => {
 
   return {
     ...config,
-    name: "Shunt Wizard" + suffix,
-    slug: "ShuntRecorder",
+    name: "ShuntMerlin" + suffix,
+    slug: "ShuntMerlin",
     version: packageJson.version,
     orientation: "portrait",
     icon: "./assets/images/app-icon.png",
-    scheme: "shunt-wizard",
+    scheme: "shuntmerlin",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
     ios: {
@@ -105,7 +105,7 @@ module.exports = ({ config }) => {
     ],
     extra: {
       eas: {
-        projectId: "33491c00-0b10-436d-bd0d-0a521b04c158",
+        projectId: "c71c7a77-fa61-4b32-a751-c268df42f82f",
       },
       // Consumed by config/api.ts via Constants.expoConfig.extra.apiBaseUrl
       apiBaseUrl: API_BASE_URLS[profile] ?? API_BASE_URLS.development,

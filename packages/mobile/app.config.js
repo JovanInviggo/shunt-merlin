@@ -53,7 +53,7 @@ module.exports = ({ config }) => {
   return {
     ...config,
     name: "ShuntMerlin" + suffix,
-    slug: "ShuntMerlin",
+    slug: "shuntmerlin",
     version: packageJson.version,
     orientation: "portrait",
     icon: "./assets/images/app-icon.png",

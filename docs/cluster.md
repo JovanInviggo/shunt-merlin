@@ -232,9 +232,14 @@ shunt-wizzard/
 │           └── backend-configmap-patch.yaml
 ├── .github/workflows/
 │   └── deploy.yml                  # CI/CD pipeline
+├── turbo.json                    # Turborepo config
+├── pnpm-workspace.yaml           # pnpm workspaces
+├── .npmrc                        # node-linker=hoisted
+├── .dockerignore                 # Excludes .git, node_modules, mobile source, docs
 └── packages/
     ├── backend/                    # NestJS API
-    └── dashboard/                  # React + Vite
+    ├── dashboard/                  # React + Vite SPA
+    └── mobile/                     # React Native + Expo (in progress)
 ```
 
 **Kustomize** is how the base + overlay system works. Running `kubectl apply -k k8s/overlays/dev`
@@ -251,16 +256,32 @@ overrides specific ConfigMap values for each environment (e.g., different `ALLOW
 
 **Trigger:** Push to `develop` → deploy to dev. Push to `main` → deploy to prod.
 
-**What the pipeline does** (`.github/workflows/deploy.yml`):
-1. Builds the backend Docker image for `linux/arm64`
-2. Builds the dashboard Docker image for `linux/arm64`
-3. Pushes both to GHCR (GitHub Container Registry) tagged with:
-   - `dev-latest` (or `prod-latest`) — floating tag, always points to newest
-   - `<git-sha>` — immutable tag for that specific commit
-4. Runs `kubectl apply -k k8s/overlays/dev` — applies all Kubernetes manifests
-5. Runs `kubectl set image` with the SHA tag — updates the deployment to use the exact
-   new image, not the floating `latest` tag
-6. Waits for rollout to complete
+**Runner:** `ubuntu-24.04-arm` — native ARM64, no QEMU emulation needed since the target
+platform is `linux/arm64` (Hetzner ARM64 nodes).
+
+**Pipeline structure** (4 jobs):
+
+```
+setup → build-backend ─┐
+                        ├→ deploy
+setup → build-dashboard ┘
+```
+
+1. **setup** — computes environment-specific variables (namespace, kustomize overlay, VITE_API_URL)
+2. **build-backend** — builds backend Docker image for `linux/arm64`, pushes to GHCR
+3. **build-dashboard** — builds dashboard Docker image for `linux/arm64` with `VITE_API_URL`
+   baked in as a build arg, pushes to GHCR
+4. **deploy** — applies cluster-scoped resources, runs `kubectl apply -k` for the overlay,
+   updates deployments to the exact SHA tag, waits for rollout
+
+Steps 2 and 3 run **in parallel** after setup completes. Deploy runs after both builds succeed.
+
+Both images are tagged with:
+- `<env>-latest` (e.g. `dev-latest`, `prod-latest`) — floating tag, always points to newest
+- `<git-sha>` — immutable tag for that specific commit
+
+Registry layer caching is enabled (`cache-from`/`cache-to` with `type=registry,mode=max`)
+for faster rebuilds.
 
 **Why SHA tags?** If a pod restarts and pulls `latest`, it might get a stale cached image
 or a different version than what's deployed. SHA tags are immutable — a pod always gets

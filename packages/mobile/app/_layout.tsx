@@ -5,6 +5,7 @@ import {
   DefaultTheme,
   ThemeProvider,
 } from "@react-navigation/native";
+import { Audio } from "expo-av";
 import { useFonts } from "expo-font";
 import {
   SourceSansPro_400Regular,
@@ -31,6 +32,16 @@ import { stopAllAudio } from "../hooks/useAudioPlayer";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
+
+// Configure the audio session at startup so playback works before any recording
+// has been made. Without this, iOS uses the default SoloAmbient session which
+// causes expo-av to play silently until @dr.pogodin/react-native-audio's
+// configAudioSystem() happens to run on the record screen.
+Audio.setAudioModeAsync({
+  playsInSilentModeIOS: true,
+  allowsRecordingIOS: false,
+  staysActiveInBackground: false,
+}).catch((e) => console.warn("Failed to set audio mode:", e));
 
 // Wire up logout handler at module level — ensures it's set before any component
 // mounts or effect runs, with no dependency on React's lifecycle.

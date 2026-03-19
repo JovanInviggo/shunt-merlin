@@ -5,7 +5,8 @@ WORKDIR /app
 # Development stage — used by docker-compose with volume mounts
 FROM base AS development
 
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
+COPY patches ./patches
 COPY packages/backend/package.json ./packages/backend/
 COPY packages/dashboard/package.json ./packages/dashboard/
 COPY packages/mobile/package.json ./packages/mobile/
@@ -21,7 +22,8 @@ CMD ["pnpm", "run", "start:dev"]
 # Production deps stage — only prod dependencies, cached independently from build
 FROM base AS deps
 
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
+COPY patches ./patches
 COPY packages/backend/package.json ./packages/backend/
 COPY packages/dashboard/package.json ./packages/dashboard/
 COPY packages/mobile/package.json ./packages/mobile/
@@ -30,7 +32,8 @@ RUN pnpm install --frozen-lockfile --prod --filter=backend
 # Build stage
 FROM base AS build
 
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
+COPY patches ./patches
 COPY packages/backend/package.json ./packages/backend/
 COPY packages/dashboard/package.json ./packages/dashboard/
 COPY packages/mobile/package.json ./packages/mobile/
@@ -44,6 +47,7 @@ FROM node:20-slim AS production
 
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/packages/backend/node_modules ./packages/backend/node_modules
 COPY --from=build /app/packages/backend/dist ./dist
 
 CMD ["node", "dist/main"]

@@ -176,9 +176,12 @@ export default function RecordScreen() {
     setShowLowSignal(false);
     setRecordingComplete(false);
     setCancelled(false);
+    setShowPhonePosition(true);
     hasQueuedRef.current = false;
-    router.replace("/record");
-  }, []);
+    qualityResultRef.current = null;
+    phoneOverlayAnim.setValue(1);
+    recordScreenAnim.setValue(0);
+  }, [phoneOverlayAnim, recordScreenAnim]);
 
   const showMicAlert = () => {
     Alert.alert(

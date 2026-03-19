@@ -433,3 +433,35 @@ describe("onQualityCheck — low signal path", () => {
     expect(mockCancel).not.toHaveBeenCalled();
   });
 });
+
+describe("LowSignalOverlay retry", () => {
+  it("resets state and shows PhonePosition without calling router.replace('/record')", async () => {
+    const mockCancel = jest.fn().mockResolvedValue(undefined);
+    getHookMock().mockReturnValue(buildMockHook({
+      isRecording: true,
+      cancelRecording: mockCancel,
+    }));
+
+    render(<RecordScreen />);
+    await act(async () => { await flushTimersAndMicrotasks(); });
+
+    // Dismiss PhonePosition to enter recording phase
+    await act(async () => { fireEvent.press(screen.getByTestId("phone-position-button")); });
+
+    // Trigger the DEV low-signal button — sets showLowSignal: true
+    await act(async () => {
+      fireEvent.press(screen.getByTestId("dev-simulate-low-signal"));
+    });
+
+    // LowSignalOverlay mock is now visible — retry button is rendered
+    const retryBtn = screen.getByTestId("low-signal-retry-btn");
+
+    await act(async () => { fireEvent.press(retryBtn); });
+
+    // Must NOT navigate away (would stack a second modal)
+    expect(router.replace).not.toHaveBeenCalledWith("/record");
+
+    // Must show PhonePosition again (state reset in-place)
+    expect(screen.getByTestId("phone-position-button")).toBeTruthy();
+  });
+});

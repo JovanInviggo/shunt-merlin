@@ -345,12 +345,7 @@ const processQueue = async (): Promise<void> => {
         {
           s3Key,
           metadata: {
-            studyId: itemToProcess.metadata.studyId,
-            location: itemToProcess.metadata.location,
-            notes: itemToProcess.metadata.notes,
-            timestamp: itemToProcess.metadata.timestamp,
-            platform: itemToProcess.metadata.platform,
-            osVersion: itemToProcess.metadata.osVersion,
+            ...itemToProcess.metadata,
             device: Constants.deviceName,
           },
         }

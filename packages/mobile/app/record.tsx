@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import * as Haptics from "expo-haptics";
 import {
   Alert,
+  Linking,
   Platform,
   StyleSheet,
   TouchableOpacity,
@@ -11,6 +12,7 @@ import {
   View,
   Animated,
 } from "react-native";
+import { Audio } from "expo-av";
 import { Text } from "../components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LiveWaveform } from "../components/live-waveform";
@@ -166,7 +168,20 @@ export default function RecordScreen() {
     router.replace("/record");
   }, []);
 
-  const handleStartFromPhonePosition = () => {
+  const handleStartFromPhonePosition = async () => {
+    const { status } = await Audio.requestPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert(
+        t.record.micPermissionTitle,
+        t.record.micPermissionMessage,
+        [
+          { text: t.common.cancel, style: "cancel" },
+          { text: t.record.micPermissionOpenSettings, onPress: () => Linking.openSettings() },
+        ]
+      );
+      return;
+    }
+
     Animated.timing(phoneOverlayAnim, {
       toValue: 0,
       duration: 200,

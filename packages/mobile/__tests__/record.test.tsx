@@ -40,6 +40,9 @@ jest.mock("../locales", () => ({
         inProgress: "Recording in progress",
         complete: "Done! The recording is now being saved",
         completeMessage: "This may take up to 30 seconds. You can move your phone now",
+        micPermissionTitle: "Microphone Access Required",
+        micPermissionMessage: "Microphone access is required.",
+        micPermissionOpenSettings: "Open Settings",
       },
       common: { cancel: "Cancel", ok: "OK", appTitle: "Shunt Diary" },
     },
@@ -48,6 +51,13 @@ jest.mock("../locales", () => ({
   }),
   interpolate: (text: string, params: Record<string, any>) =>
     text.replace(/\{\{(\w+)\}\}/g, (_, k) => params[k]?.toString() ?? `{{${k}}}`),
+}));
+
+jest.mock("react-native-permissions", () => ({
+  check: jest.fn().mockResolvedValue("granted"),
+  request: jest.fn().mockResolvedValue("granted"),
+  PERMISSIONS: { IOS: { MICROPHONE: "ios.permission.MICROPHONE" }, ANDROID: { RECORD_AUDIO: "android.permission.RECORD_AUDIO" } },
+  RESULTS: { GRANTED: "granted", DENIED: "denied", BLOCKED: "blocked", LIMITED: "limited", UNAVAILABLE: "unavailable" },
 }));
 
 jest.mock("react-native-safe-area-context", () => {

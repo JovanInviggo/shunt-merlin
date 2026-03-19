@@ -264,8 +264,6 @@ export default function RecordScreen() {
             buttonText={t.record.startRecording}
             showHeader={false}
             onButtonPress={handleStartFromPhonePosition}
-            disabled={!micPermissionGranted}
-            disabledHint={micPermissionGranted ? undefined : t.record.micPermissionDisabled}
           />
         </Animated.View>
       )}

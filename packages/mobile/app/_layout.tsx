@@ -79,8 +79,8 @@ export default function RootLayout() {
   const { isChecking } = useAuthCheck();
 
   return (
-    <ErrorBoundary>
     <I18nProvider initialLanguage="de">
+    <ErrorBoundary>
       <PaperProvider>
         <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
           <Stack
@@ -106,8 +106,8 @@ export default function RootLayout() {
           <StatusBar style="auto" />
         </ThemeProvider>
       </PaperProvider>
-    </I18nProvider>
     </ErrorBoundary>
+    </I18nProvider>
   );
 }
 

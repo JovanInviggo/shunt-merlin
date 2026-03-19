@@ -64,20 +64,15 @@ export default function RecordingOverviewScreen() {
     }
   }, []);
 
-  const handlePlayPress = async () => {
-    if (isLoading) return;
-    if (durationMillis === 0) {
-      const uri = await resolveAudioUri(params.id, {
-        localPath: params.localPath,
-        s3Key: params.s3Key,
-      });
-      if (uri) {
-        await loadSound(uri);
-        await togglePlayback();
-      }
-    } else {
-      await togglePlayback();
+  // Auto-load sound as soon as the path is available
+  useEffect(() => {
+    if (audioPath) {
+      loadSound(audioPath);
     }
+  }, [audioPath, loadSound]);
+
+  const handlePlayPress = async () => {
+    await togglePlayback();
   };
 
   const remainingTime = durationMillis - positionMillis;
@@ -127,8 +122,12 @@ export default function RecordingOverviewScreen() {
           </View>
           <View style={styles.playbackControls}>
             <Text style={styles.timeText}>{formatTime(positionMillis)}</Text>
-            <TouchableOpacity onPress={handlePlayPress} style={styles.playButton}>
-              {isLoading ? (
+            <TouchableOpacity
+              onPress={handlePlayPress}
+              style={styles.playButton}
+              disabled={isLoading || durationMillis === 0}
+            >
+              {isLoading || durationMillis === 0 ? (
                 <ActivityIndicator size="large" color={Colors.primary} />
               ) : (
                 <Ionicons

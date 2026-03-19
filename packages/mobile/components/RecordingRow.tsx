@@ -37,6 +37,13 @@ export const RecordingRow: React.FC<RecordingRowProps> = ({ recording }) => {
     }
   }, [expanded]);
 
+  // Auto-load sound as soon as the path is available while expanded
+  useEffect(() => {
+    if (expanded && audioPath) {
+      loadSound(audioPath);
+    }
+  }, [expanded, audioPath, loadSound]);
+
   // Handle expand/collapse animation
   useEffect(() => {
     Animated.parallel([
@@ -79,16 +86,7 @@ export const RecordingRow: React.FC<RecordingRowProps> = ({ recording }) => {
   };
 
   const handlePlayPress = async () => {
-    if (isLoading) return;
-    if (durationMillis === 0) {
-      const uri = await resolveAudioUri(recording.id, recording);
-      if (uri) {
-        await loadSound(uri);
-        await togglePlayback();
-      }
-    } else {
-      await togglePlayback();
-    }
+    await togglePlayback();
   };
 
   const remainingTime = durationMillis - positionMillis;
@@ -132,8 +130,12 @@ export const RecordingRow: React.FC<RecordingRowProps> = ({ recording }) => {
           {/* Playback controls */}
           <View style={styles.playbackControls}>
             <Text style={styles.timeText}>{formatTime(positionMillis)}</Text>
-            <TouchableOpacity onPress={handlePlayPress} style={styles.playButton}>
-              {isLoading ? (
+            <TouchableOpacity
+              onPress={handlePlayPress}
+              style={styles.playButton}
+              disabled={isLoading || durationMillis === 0}
+            >
+              {isLoading || durationMillis === 0 ? (
                 <ActivityIndicator size="small" color={Colors.textSecondary} />
               ) : (
                 <Ionicons

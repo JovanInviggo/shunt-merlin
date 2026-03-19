@@ -169,8 +169,21 @@ export default function RecordScreen() {
   }, []);
 
   const handleStartFromPhonePosition = async () => {
-    const { status } = await Audio.requestPermissionsAsync();
-    if (status !== "granted") {
+    try {
+      const { status } = await Audio.requestPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          t.record.micPermissionTitle,
+          t.record.micPermissionMessage,
+          [
+            { text: t.common.cancel, style: "cancel" },
+            { text: t.record.micPermissionOpenSettings, onPress: () => Linking.openSettings() },
+          ]
+        );
+        return;
+      }
+    } catch (e) {
+      console.error("Microphone permission check failed:", e);
       Alert.alert(
         t.record.micPermissionTitle,
         t.record.micPermissionMessage,

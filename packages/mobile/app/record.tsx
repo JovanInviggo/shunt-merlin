@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import * as Haptics from "expo-haptics";
 import {
   Alert,
+  AppState,
   Linking,
   Platform,
   StyleSheet,
@@ -46,6 +47,7 @@ export default function RecordScreen() {
   const { t } = useI18n();
   const [currentStudyId, setCurrentStudyId] = useState(params.studyId || "");
   const [showPhonePosition, setShowPhonePosition] = useState(true);
+  const [micPermissionGranted, setMicPermissionGranted] = useState(true);
   const [cancelled, setCancelled] = useState(false);
   const [recordingComplete, setRecordingComplete] = useState(false);
   const [showLowSignal, setShowLowSignal] = useState(false);
@@ -65,6 +67,25 @@ export default function RecordScreen() {
         if (id) setCurrentStudyId(id);
       });
     }
+  }, []);
+
+  // Check microphone permission on mount and whenever the app comes back to the foreground
+  useEffect(() => {
+    const permission = Platform.OS === "ios" ? PERMISSIONS.IOS.MICROPHONE : PERMISSIONS.ANDROID.RECORD_AUDIO;
+    const checkPermission = async () => {
+      try {
+        const result = await check(permission);
+        setMicPermissionGranted(result === RESULTS.GRANTED || result === RESULTS.LIMITED);
+      } catch {
+        setMicPermissionGranted(false);
+      }
+    };
+
+    checkPermission();
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") checkPermission();
+    });
+    return () => subscription.remove();
   }, []);
 
   const queueAndGoHome = useCallback(async (
@@ -243,6 +264,8 @@ export default function RecordScreen() {
             buttonText={t.record.startRecording}
             showHeader={false}
             onButtonPress={handleStartFromPhonePosition}
+            disabled={!micPermissionGranted}
+            disabledHint={micPermissionGranted ? undefined : t.record.micPermissionDisabled}
           />
         </Animated.View>
       )}

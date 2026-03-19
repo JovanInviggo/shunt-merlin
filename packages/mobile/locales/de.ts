@@ -52,6 +52,7 @@ export default {
     micPermissionTitle: "Mikrofonzugriff erforderlich",
     micPermissionMessage: "ShuntMerlin benötigt Zugriff auf Ihr Mikrofon, um Audio aufzunehmen. Bitte aktivieren Sie dies in den Geräteeinstellungen.",
     micPermissionOpenSettings: "Einstellungen öffnen",
+    micPermissionDisabled: "Mikrofonzugriff ist erforderlich, um aufzunehmen",
   },
 
   // Submit Screen

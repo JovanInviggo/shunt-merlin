@@ -242,49 +242,50 @@ export default function RecordScreen() {
         visible={showLowSignal}
         onRetry={handleLowSignalRetry}
       />
-      {showPhonePosition && (
-        <Animated.View
-          style={{
-            flex: 1,
-            opacity: phoneOverlayAnim,
-            transform: [
-              {
-                translateX: phoneOverlayAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [-20, 0],
-                }),
-              },
-            ],
-          }}
-        >
-          <PhonePosition
-            showCancelButton={true}
-            onCancelPress={() => handleStop()}
-            buttonText={t.record.startRecording}
-            showHeader={false}
-            onButtonPress={handleStartFromPhonePosition}
-          />
-        </Animated.View>
-      )}
-      {!showPhonePosition && (
-        <Animated.View
-          style={{
-            flex: 1,
-            opacity: recordScreenAnim,
-            transform: [
-              {
-                translateX: recordScreenAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [20, 0],
-                }),
-              },
-            ],
-          }}
-        >
-          <SafeAreaView
-            style={styles.container}
-            edges={["top", "left", "right", "bottom"]}
+      <View style={styles.modalSheet}>
+        {showPhonePosition && (
+          <Animated.View
+            style={{
+              flex: 1,
+              opacity: phoneOverlayAnim,
+              transform: [
+                {
+                  translateX: phoneOverlayAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-20, 0],
+                  }),
+                },
+              ],
+            }}
           >
+            <PhonePosition
+              showCancelButton={true}
+              onCancelPress={() => handleStop()}
+              buttonText={t.record.startRecording}
+              showHeader={false}
+              onButtonPress={handleStartFromPhonePosition}
+            />
+          </Animated.View>
+        )}
+        {!showPhonePosition && (
+          <Animated.View
+            style={{
+              flex: 1,
+              opacity: recordScreenAnim,
+              transform: [
+                {
+                  translateX: recordScreenAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [20, 0],
+                  }),
+                },
+              ],
+            }}
+          >
+            <SafeAreaView
+              style={styles.container}
+              edges={["left", "right", "bottom"]}
+            >
             <TouchableOpacity onPress={recordingComplete ? () => router.replace("/") : cancelRecordingAlert} style={styles.closeButton}>
               <Ionicons name="close" size={18} style={styles.closeButtonIcon} />
             </TouchableOpacity>
@@ -384,13 +385,20 @@ export default function RecordScreen() {
               </View>
             )}
           </SafeAreaView>
-        </Animated.View>
-      )}
+          </Animated.View>
+        )}
+      </View>
     </>
   );
 }
 
 const styles = StyleSheet.create({
+  modalSheet: {
+    flex: 1,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    overflow: 'hidden',
+  },
   container: {
     flex: 1,
     backgroundColor: "#F0FFFF",

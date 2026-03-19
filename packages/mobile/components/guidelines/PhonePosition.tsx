@@ -33,7 +33,7 @@ export default function PhonePosition({
         router.push("/guideline");
     };
     return (
-        <SafeAreaView style={styles.container} edges={["top", "left", "right", 'bottom']}>
+        <SafeAreaView style={styles.container} edges={["left", "right", 'bottom']}>
             {showHeader && <View style={styles.header}>
                 <TouchableOpacity>
                     <Ionicons name="chevron-back" size={24} color={Colors.guidelineTextDark} />
@@ -63,7 +63,6 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: Colors.guidelineBackground,
-        paddingTop: 24
     },
     guidelineContent: {
         flex: 1,
@@ -122,7 +121,7 @@ const styles = StyleSheet.create({
     },
     cancelButton: {
         position: "absolute",
-        top: 38,
+        top: 14,
         right: 16,
         backgroundColor: "#0000001A",
         borderRadius: 20,

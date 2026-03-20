@@ -150,10 +150,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   cancelledToast: {
+    position: 'absolute',
+    top: 0,
+    alignSelf: 'center',
+    width: '90%',
     backgroundColor: Colors.textDark,
     paddingVertical: 14,
     paddingHorizontal: 20,
-    marginBottom: 4,
+    zIndex: 10,
+    borderRadius: 8,
   },
   cancelledToastText: {
     color: '#ffffff',

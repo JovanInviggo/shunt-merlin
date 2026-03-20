@@ -276,7 +276,7 @@ describe("cancel / stop button", () => {
     const okButton = alertCall[2].find((btn: any) => btn.text === "OK");
     await act(async () => { okButton.onPress(); });
 
-    expect(router.replace).toHaveBeenCalledWith("/");
+    expect(router.replace).toHaveBeenCalledWith("/?cancelled=true");
   });
 
   it("navigates directly to / without alert when close is pressed after recording is complete", async () => {
@@ -321,7 +321,7 @@ describe("cancel / stop button", () => {
     await act(async () => { okButton.onPress(); });
 
     expect(mockCancel).toHaveBeenCalledTimes(1);
-    expect(router.replace).toHaveBeenCalledWith("/");
+    expect(router.replace).toHaveBeenCalledWith("/?cancelled=true");
   });
 });
 

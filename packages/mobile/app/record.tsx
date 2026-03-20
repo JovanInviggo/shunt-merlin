@@ -156,7 +156,7 @@ export default function RecordScreen() {
     if (isRecording) {
       await cancelRecording();
     }
-    router.replace("/");
+    router.replace("/?cancelled=true");
   };
 
   const vibrateAndStartRecording = async () => {

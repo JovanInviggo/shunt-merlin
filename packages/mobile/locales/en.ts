@@ -53,6 +53,7 @@ export default {
     completeMessage: "This may take up to 30 seconds. You can move your phone now",
     cancelTitle: "Recording will be cancelled",
     cancelMessage: "Please note that we cannot process a recording shorter than 30 seconds. The recording will be cancelled and discarded. You can always start a new one.",
+    cancelledToast: "Recording cancelled",
     micPermissionTitle: "Microphone Access Required",
     micPermissionMessage: "ShuntMerlin needs microphone access to record audio. Please enable it in your device settings.",
     micPermissionOpenSettings: "Open Settings",

@@ -53,6 +53,7 @@ export default {
     completeMessage: "Das kann bis zu 30 Sekunden dauern. Sie können Ihr Handy jetzt bewegen",
     cancelTitle: "Aufnahme wird abgebrochen",
     cancelMessage: "Bitte beachten Sie, dass wir eine Aufnahme unter 30 Sekunden nicht verarbeiten können. Die Aufnahme wird abgebrochen und gelöscht. Sie können jederzeit eine neue starten.",
+    cancelledToast: "Aufnahme abgebrochen",
     micPermissionTitle: "Mikrofonzugriff erforderlich",
     micPermissionMessage: "ShuntMerlin benötigt Zugriff auf Ihr Mikrofon, um Audio aufzunehmen. Bitte aktivieren Sie dies in den Geräteeinstellungen.",
     micPermissionOpenSettings: "Einstellungen öffnen",

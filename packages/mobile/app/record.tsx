@@ -286,7 +286,7 @@ export default function RecordScreen() {
               style={styles.container}
               edges={["left", "right", "bottom"]}
             >
-            <TouchableOpacity onPress={recordingComplete ? () => router.replace("/") : cancelRecordingAlert} style={styles.closeButton}>
+            <TouchableOpacity onPress={recordingComplete || !isRecording ? () => router.replace("/") : cancelRecordingAlert} style={styles.closeButton}>
               <Ionicons name="close" size={18} style={styles.closeButtonIcon} />
             </TouchableOpacity>
 

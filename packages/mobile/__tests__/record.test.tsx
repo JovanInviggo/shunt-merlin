@@ -260,7 +260,7 @@ describe("cancel / stop button", () => {
     await act(async () => { fireEvent.press(screen.getByTestId("phone-position-button")); });
   };
 
-  it("navigates to / when cancel is pressed (not recording)", async () => {
+  it("navigates directly to / without alert when close is pressed during countdown (not recording)", async () => {
     render(<RecordScreen />);
     await act(async () => { await flushTimersAndMicrotasks(); });
     await dismissPhonePosition();
@@ -271,12 +271,9 @@ describe("cancel / stop button", () => {
     );
     await act(async () => { fireEvent.press(touchables[0]); });
 
-    // Alert.alert is called; simulate pressing OK
-    const alertCall = (Alert.alert as jest.Mock).mock.calls[0];
-    const okButton = alertCall[2].find((btn: any) => btn.text === "OK");
-    await act(async () => { okButton.onPress(); });
-
-    expect(router.replace).toHaveBeenCalledWith("/?cancelled=true");
+    // No alert — navigates immediately since recording hasn't started
+    expect(Alert.alert).not.toHaveBeenCalled();
+    expect(router.replace).toHaveBeenCalledWith("/");
   });
 
   it("navigates directly to / without alert when close is pressed after recording is complete", async () => {

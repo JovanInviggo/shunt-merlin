@@ -1,6 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
     StyleSheet,
     TouchableOpacity,
@@ -11,6 +10,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "react-native";
 import { Colors, Fonts } from "../../constants/theme";
 import { useI18n } from "@/locales";
+import GuidelineModal from "./GuidelineModal";
 
 export default function PhonePosition({
     buttonText,
@@ -28,11 +28,10 @@ export default function PhonePosition({
     onCancelPress?: () => void;
 }) {
     const { t } = useI18n();
-    const router = useRouter();
-    const onInstructionsButtonPress = () => {
-        router.push("/guideline");
-    };
+    const [showGuidelineModal, setShowGuidelineModal] = useState(false);
     return (
+        <>
+        <GuidelineModal visible={showGuidelineModal} onClose={() => setShowGuidelineModal(false)} />
         <SafeAreaView style={styles.container} edges={["left", "right", 'bottom']}>
             {showHeader && <View style={styles.header}>
                 <TouchableOpacity>
@@ -47,7 +46,7 @@ export default function PhonePosition({
                 <Image source={require("../../assets/images/position-phone-guideline.png")} />
                 <Text style={styles.guidelineTitle}>{t.guideline.slide4Title}</Text>
                 <Text style={styles.guidelineText}>{t.guideline.slide4Text}</Text>
-                <TouchableOpacity style={styles.fullInstructionsButton} onPress={onInstructionsButtonPress}>
+                <TouchableOpacity style={styles.fullInstructionsButton} onPress={() => setShowGuidelineModal(true)}>
                     <Ionicons name="information-circle-outline" size={24} color={Colors.guidelineText} />
                     <Text style={styles.buttonText}>{t.guideline.viewFullInstructions}</Text>
                 </TouchableOpacity>
@@ -56,6 +55,7 @@ export default function PhonePosition({
                 <Text style={styles.buttonText}>{buttonText}</Text>
             </TouchableOpacity>
         </SafeAreaView>
+        </>
     );
 }
 

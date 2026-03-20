@@ -99,6 +99,7 @@ export default {
     skip: "Überspringen",
     next: "Weiter",
     getStarted: "Loslegen",
+    close: "Schließen",
     slide1Title: "So erhalten Sie eine hochwertige Aufnahme",
     slide1Text: "Stellen Sie sicher, dass Sie sich an einem ruhigen Ort befinden. Bewegen Sie sich nicht, sprechen Sie nicht und schließen Sie die App während der Aufnahme nicht",
     slide2Title: "Entfernen Sie die Handyhülle und finden Sie Ihr Mikrofon",

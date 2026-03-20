@@ -99,6 +99,7 @@ export default {
     skip: "Skip",
     next: "Next",
     getStarted: "Get Started",
+    close: "Close",
     slide1Title: "How to get a high-quality recording",
     slide1Text: "Make sure you are in a quiet place. Don't move, speak, or close the app while recording",
     slide2Title: "Remove the phone cover and find your microphone",

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Alert, TouchableOpacity, StyleSheet, Image, View } from 'react-native';
 import { Text } from "../components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { clearQueue } from "../utils/upload-queue";
 import { RecordingsList } from "../components/RecordingsList";
 import { getMergedRecordings } from "../utils/recordings-service";
@@ -12,7 +12,17 @@ import { Ionicons } from "@expo/vector-icons";
 
 export default function Index() {
   const { t } = useI18n();
+  const { cancelled } = useLocalSearchParams<{ cancelled?: string }>();
   const [hasRecordings, setHasRecordings] = useState<boolean | null>(null);
+  const [showCancelledToast, setShowCancelledToast] = useState(false);
+
+  useEffect(() => {
+    if (cancelled === "true") {
+      setShowCancelledToast(true);
+      const timer = setTimeout(() => setShowCancelledToast(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [cancelled]);
 
   useEffect(() => {
     getMergedRecordings().then(({ recordings, apiError }) => {
@@ -30,6 +40,12 @@ export default function Index() {
 
   return (
     <SafeAreaView style={styles.container} edges={["left", "right", "bottom"]}>
+
+      {showCancelledToast && (
+        <View testID="recording-cancelled-toast" style={styles.cancelledToast}>
+          <Text style={styles.cancelledToastText}>{t.record.cancelledToast}</Text>
+        </View>
+      )}
 
       <Text style={styles.title}>{t.common.appTitle}</Text>
 
@@ -132,5 +148,16 @@ const styles = StyleSheet.create({
   clearQueueText: {
     color: Colors.destructive,
     fontSize: 14,
+  },
+  cancelledToast: {
+    backgroundColor: Colors.textDark,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    marginBottom: 4,
+  },
+  cancelledToastText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontFamily: Fonts.semiBold,
   },
 });

@@ -72,10 +72,15 @@ jest.mock("react-native-safe-area-context", () => {
 
 jest.mock("@/components/guidelines/PhonePosition", () => {
   const React = require("react");
-  const { TouchableOpacity, Text } = require("react-native");
-  return ({ onButtonPress }) =>
-    React.createElement(TouchableOpacity, { testID: "phone-position-button", onPress: onButtonPress },
-      React.createElement(Text, null, "Start Recording")
+  const { TouchableOpacity, Text, View } = require("react-native");
+  return ({ onButtonPress, onCancelPress }) =>
+    React.createElement(View, null,
+      React.createElement(TouchableOpacity, { testID: "phone-position-button", onPress: onButtonPress },
+        React.createElement(Text, null, "Start Recording")
+      ),
+      React.createElement(TouchableOpacity, { testID: "phone-position-cancel", onPress: onCancelPress },
+        React.createElement(Text, null, "Cancel")
+      ),
     );
 });
 
@@ -200,6 +205,18 @@ describe("initial render", () => {
     await act(async () => { await flushTimersAndMicrotasks(); });
 
     expect(screen.queryByTestId("countdown-complete-btn")).toBeNull();
+  });
+});
+
+describe("phone position cancel", () => {
+  it("navigates directly to / without alert when cancel is pressed on phone position screen", async () => {
+    render(<RecordScreen />);
+    await act(async () => { await flushTimersAndMicrotasks(); });
+
+    await act(async () => { fireEvent.press(screen.getByTestId("phone-position-cancel")); });
+
+    expect(Alert.alert).not.toHaveBeenCalled();
+    expect(router.replace).toHaveBeenCalledWith("/");
   });
 });
 

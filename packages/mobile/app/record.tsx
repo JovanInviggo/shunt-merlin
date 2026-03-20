@@ -260,7 +260,7 @@ export default function RecordScreen() {
           >
             <PhonePosition
               showCancelButton={true}
-              onCancelPress={() => handleStop()}
+              onCancelPress={() => router.replace("/")}
               buttonText={t.record.startRecording}
               showHeader={false}
               onButtonPress={handleStartFromPhonePosition}

@@ -24,21 +24,23 @@ jest.mock("@expo/vector-icons", () => ({
   Ionicons: () => null,
 }));
 
-// formatRelativeTime (used by RecordingRow) calls useI18n() internally
+// formatRelativeTime (used by RecordingRow) calls useI18n() and interpolate() internally
 jest.mock("@/locales/i18n", () => ({
   useI18n: () => ({
     t: {
-      common: { justNow: "Just now" },
+      common: { justNow: "Just now", minAgo: "{{count}} min ago", today: "Today", yesterday: "Yesterday", dayNames: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] },
     },
     language: "en",
     setLanguage: jest.fn(),
   }),
+  interpolate: (text: string, params: Record<string, any>) =>
+    text.replace(/\{\{(\w+)\}\}/g, (_, k) => params[k]?.toString() ?? `{{${k}}}`),
 }));
 
 // ── Imports ───────────────────────────────────────────────────────────────────
 
 import React from "react";
-import { TouchableOpacity } from "react-native";
+import { TouchableOpacity, ActivityIndicator } from "react-native";
 import { render, screen, fireEvent, act } from "@testing-library/react-native";
 import { router } from "expo-router";
 import { RecordingRow } from "../components/RecordingRow";
@@ -152,9 +154,8 @@ describe("expand / collapse", () => {
 });
 
 describe("audio playback", () => {
-  it("calls resolveAudioUri and loadSound when play button is pressed (first time)", async () => {
+  it("auto-loads sound on expand when localPath is available", async () => {
     const mockLoadSound = jest.fn().mockResolvedValue(undefined);
-    const mockTogglePlayback = jest.fn().mockResolvedValue(undefined);
 
     (useAudioPlayer as jest.Mock).mockReturnValue({
       isPlaying: false,
@@ -163,30 +164,46 @@ describe("audio playback", () => {
       positionMillis: 0,
       durationMillis: 0,
       loadSound: mockLoadSound,
-      togglePlayback: mockTogglePlayback,
+      togglePlayback: jest.fn().mockResolvedValue(undefined),
     });
 
     render(<RecordingRow recording={makeRecording()} />);
 
-    // Expand first
     const touchables = screen.UNSAFE_getAllByType(TouchableOpacity);
     await act(async () => { fireEvent.press(touchables[1]); });
 
-    // Play button is the 3rd touchable (row, chevron, play)
-    const expandedTouchables = screen.UNSAFE_getAllByType(TouchableOpacity);
-    const playButton = expandedTouchables[2];
-    await act(async () => { fireEvent.press(playButton); });
+    // loadSound is called via useEffect when expanded and localPath is set
+    expect(mockLoadSound).toHaveBeenCalledWith("file:///cache/recording.wav");
+    // resolveAudioUri is NOT called because localPath is already available
+    expect(resolveAudioUri).not.toHaveBeenCalled();
+  });
+
+  it("calls resolveAudioUri then loadSound on expand when localPath is absent", async () => {
+    const mockLoadSound = jest.fn().mockResolvedValue(undefined);
+
+    (useAudioPlayer as jest.Mock).mockReturnValue({
+      isPlaying: false,
+      isLoading: false,
+      error: null,
+      positionMillis: 0,
+      durationMillis: 0,
+      loadSound: mockLoadSound,
+      togglePlayback: jest.fn().mockResolvedValue(undefined),
+    });
+
+    // Recording with no localPath — component will call resolveAudioUri on expand
+    render(<RecordingRow recording={makeRecording({ localPath: null })} />);
+
+    const touchables = screen.UNSAFE_getAllByType(TouchableOpacity);
+    await act(async () => { fireEvent.press(touchables[1]); });
 
     expect(resolveAudioUri).toHaveBeenCalledWith("rec-1", expect.objectContaining({
-      localPath: "file:///cache/recording.wav",
       s3Key: "study-1/recording.wav",
     }));
     expect(mockLoadSound).toHaveBeenCalledWith("/local/path.wav");
-    expect(mockTogglePlayback).toHaveBeenCalled();
   });
 
-  it("calls togglePlayback directly when sound is already loaded (durationMillis > 0)", async () => {
-    const mockLoadSound = jest.fn().mockResolvedValue(undefined);
+  it("calls togglePlayback when play is pressed and sound is loaded (durationMillis > 0)", async () => {
     const mockTogglePlayback = jest.fn().mockResolvedValue(undefined);
 
     (useAudioPlayer as jest.Mock).mockReturnValue({
@@ -194,8 +211,8 @@ describe("audio playback", () => {
       isLoading: false,
       error: null,
       positionMillis: 0,
-      durationMillis: 30000, // Already loaded
-      loadSound: mockLoadSound,
+      durationMillis: 30000,
+      loadSound: jest.fn().mockResolvedValue(undefined),
       togglePlayback: mockTogglePlayback,
     });
 
@@ -208,22 +225,18 @@ describe("audio playback", () => {
     const playButton = expandedTouchables[2];
     await act(async () => { fireEvent.press(playButton); });
 
-    expect(mockLoadSound).not.toHaveBeenCalled();
     expect(mockTogglePlayback).toHaveBeenCalled();
   });
 
-  it("does not trigger play when isLoading is true", async () => {
-    const mockLoadSound = jest.fn().mockResolvedValue(undefined);
-    const mockTogglePlayback = jest.fn().mockResolvedValue(undefined);
-
+  it("shows ActivityIndicator instead of play icon when isLoading=true", async () => {
     (useAudioPlayer as jest.Mock).mockReturnValue({
       isPlaying: false,
       isLoading: true,
       error: null,
       positionMillis: 0,
       durationMillis: 0,
-      loadSound: mockLoadSound,
-      togglePlayback: mockTogglePlayback,
+      loadSound: jest.fn().mockResolvedValue(undefined),
+      togglePlayback: jest.fn().mockResolvedValue(undefined),
     });
 
     render(<RecordingRow recording={makeRecording()} />);
@@ -231,11 +244,6 @@ describe("audio playback", () => {
     const touchables = screen.UNSAFE_getAllByType(TouchableOpacity);
     await act(async () => { fireEvent.press(touchables[1]); });
 
-    const expandedTouchables = screen.UNSAFE_getAllByType(TouchableOpacity);
-    const playButton = expandedTouchables[2];
-    await act(async () => { fireEvent.press(playButton); });
-
-    expect(mockLoadSound).not.toHaveBeenCalled();
-    expect(mockTogglePlayback).not.toHaveBeenCalled();
+    expect(screen.UNSAFE_getAllByType(ActivityIndicator).length).toBeGreaterThan(0);
   });
 });

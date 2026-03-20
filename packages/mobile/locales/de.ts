@@ -9,6 +9,10 @@ export default {
     studyId: "Studien-ID",
     appTitle: "Shunt-Tagebuch",
     justNow: "Gerade eben",
+    minAgo: "vor {{count}} Min.",
+    today: "Heute",
+    yesterday: "Gestern",
+    dayNames: ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"],
   },
 
   // Login Screen

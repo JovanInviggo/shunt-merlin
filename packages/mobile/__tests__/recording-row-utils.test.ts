@@ -5,11 +5,19 @@ jest.mock("../utils/recordings-service", () => ({}));
 jest.mock("@/locales/i18n", () => ({
   useI18n: () => ({
     t: {
-      common: { justNow: "Just now" },
+      common: {
+        justNow: "Just now",
+        minAgo: "{{count}} min ago",
+        today: "Today",
+        yesterday: "Yesterday",
+        dayNames: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+      },
     },
     language: "en",
     setLanguage: jest.fn(),
   }),
+  interpolate: (text: string, params: Record<string, string | number>) =>
+    text.replace(/\{\{(\w+)\}\}/g, (_, key) => params[key]?.toString() ?? `{{${key}}}`),
 }));
 
 import { formatRelativeTime, getStatusColor } from "../utils/recording-row-utils";

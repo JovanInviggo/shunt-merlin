@@ -1,4 +1,4 @@
-import { useI18n } from "@/locales/i18n";
+import { interpolate, useI18n } from "@/locales/i18n";
 import { AnalysisStatus, RecordingStatus } from "./recordings-service";
 
 export const formatTime = (ms: number): string => {
@@ -10,7 +10,7 @@ export const formatTime = (ms: number): string => {
 
 // Format timestamp to relative time
 export const formatRelativeTime = (timestamp: string): string => {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const date = new Date(timestamp);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
@@ -24,31 +24,30 @@ export const formatRelativeTime = (timestamp: string): string => {
   );
 
   // Format time as HH:MM
-  const timeStr = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const timeStr = date.toLocaleTimeString(language, { hour: "2-digit", minute: "2-digit" });
 
   if (diffMins < 1) {
     return t.common.justNow;
   }
 
   if (diffMins < 60) {
-    return `${diffMins} min ago`;
+    return interpolate(t.common.minAgo, { count: diffMins });
   }
 
   if (calendarDayDiff === 0) {
-    return `Today, ${timeStr}`;
+    return `${t.common.today}, ${timeStr}`;
   }
 
   if (calendarDayDiff === 1) {
-    return `Yesterday, ${timeStr}`;
+    return `${t.common.yesterday}, ${timeStr}`;
   }
 
   if (calendarDayDiff < 7) {
-    const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-    return `${dayNames[date.getDay()]}, ${timeStr}`;
+    return `${t.common.dayNames[date.getDay()]}, ${timeStr}`;
   }
 
   // Format as date for older recordings
-  const dateStr = date.toLocaleDateString([], {
+  const dateStr = date.toLocaleDateString(language, {
     day: "numeric",
     month: "short",
     year: "numeric",

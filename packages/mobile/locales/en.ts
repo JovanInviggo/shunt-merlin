@@ -9,6 +9,10 @@ export default {
     studyId: "Study ID",
     appTitle: "Shunt Diary",
     justNow: "Just now",
+    minAgo: "{{count}} min ago",
+    today: "Today",
+    yesterday: "Yesterday",
+    dayNames: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
   },
 
   // Login Screen

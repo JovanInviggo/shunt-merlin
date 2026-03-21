@@ -23,6 +23,8 @@ import {
   getS3AudioUrl,
   getMergedRecordings,
   fetchRecordingsFromApi,
+  fetchRecordingsPage,
+  resolveAudioUriForQuery,
   Recording,
 } from "../utils/recordings-service";
 import type { QueueItem } from "../utils/upload-queue";
@@ -383,5 +385,79 @@ describe("getMergedRecordings — pagination", () => {
 
     expect(recordings).toHaveLength(0);
     expect(totalPages).toBe(1);
+  });
+
+  it("returns hasMore: true when page < totalPages", async () => {
+    (apiService.get as jest.Mock).mockResolvedValue(makePaginatedResponse([], 3));
+    (getQueue as jest.Mock).mockResolvedValue([]);
+    (getAuthStudyId as jest.Mock).mockResolvedValue(null);
+    const result = await getMergedRecordings(1);
+    expect(result.hasMore).toBe(true);
+  });
+
+  it("returns hasMore: false when page === totalPages", async () => {
+    (apiService.get as jest.Mock).mockResolvedValue(makePaginatedResponse([], 1));
+    (getQueue as jest.Mock).mockResolvedValue([]);
+    (getAuthStudyId as jest.Mock).mockResolvedValue(null);
+    const result = await getMergedRecordings(1);
+    expect(result.hasMore).toBe(false);
+  });
+
+  it("returns hasMore: false when apiError", async () => {
+    (apiService.get as jest.Mock).mockRejectedValue(new Error("API down"));
+    (getQueue as jest.Mock).mockResolvedValue([]);
+    (getAuthStudyId as jest.Mock).mockResolvedValue(null);
+    const result = await getMergedRecordings(1);
+    expect(result.hasMore).toBe(false); // totalPages defaults to 1 on error
+  });
+});
+
+// ── fetchRecordingsPage ───────────────────────────────────────────────────────
+
+describe("fetchRecordingsPage", () => {
+  it("returns recordings and hasMore on success", async () => {
+    (apiService.get as jest.Mock).mockResolvedValue(makePaginatedResponse(
+      [{ id: "1", s3Key: "key", studyId: "S1", createdAt: new Date().toISOString() }],
+      3
+    ));
+    (getQueue as jest.Mock).mockResolvedValue([]);
+    (getAuthStudyId as jest.Mock).mockResolvedValue("S1");
+    const result = await fetchRecordingsPage(1);
+    expect(result.recordings).toHaveLength(1);
+    expect(result.hasMore).toBe(true);
+    expect(result.totalPages).toBe(3);
+  });
+
+  it("throws when apiError and no recordings", async () => {
+    (apiService.get as jest.Mock).mockRejectedValue(new Error("Network error"));
+    (getQueue as jest.Mock).mockResolvedValue([]);
+    (getAuthStudyId as jest.Mock).mockResolvedValue(null);
+    await expect(fetchRecordingsPage(1)).rejects.toThrow("Failed to fetch recordings");
+  });
+
+  it("does NOT throw when apiError but queue items are present", async () => {
+    (apiService.get as jest.Mock).mockRejectedValue(new Error("Network error"));
+    (getQueue as jest.Mock).mockResolvedValue([{
+      id: "q1", audioPath: "/local/q1.wav", attempts: 0, lastAttempt: 0,
+      metadata: { studyId: "S1", location: "chest", notes: "", timestamp: new Date().toISOString(), audioQualityFlags: {}, platform: "ios" },
+    }]);
+    (getAuthStudyId as jest.Mock).mockResolvedValue("S1");
+    const result = await fetchRecordingsPage(1);
+    expect(result.recordings.length).toBeGreaterThan(0);
+  });
+});
+
+// ── resolveAudioUriForQuery ───────────────────────────────────────────────────
+
+describe("resolveAudioUriForQuery", () => {
+  it("returns localPath directly when present (no getCachedAudioPath call)", async () => {
+    const recording: Recording = { id: "r1", timestamp: "", studyId: "S1", status: "uploading", localPath: "file:///local/r1.wav" };
+    const result = await resolveAudioUriForQuery(recording);
+    expect(result).toBe("file:///local/r1.wav");
+  });
+
+  it("throws when both localPath and s3Key are absent", async () => {
+    const recording: Recording = { id: "r3", timestamp: "", studyId: "S1", status: "uploaded" };
+    await expect(resolveAudioUriForQuery(recording)).rejects.toThrow("Audio URI unavailable");
   });
 });

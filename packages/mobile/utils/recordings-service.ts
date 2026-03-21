@@ -1,6 +1,6 @@
 import { apiService } from "./api-service";
 import { API_CONFIG } from "../config/api";
-import { getQueue, QueueItem, subscribeToQueueChanges, unsubscribeFromQueueChanges } from "./upload-queue";
+import { getQueue, QueueItem } from "./upload-queue";
 import { getCachedAudioPath } from "./audio-cache";
 import { getAuthStudyId } from "./auth-storage";
 
@@ -93,14 +93,14 @@ export const queueItemToRecording = (item: QueueItem): Recording => {
 // Merge API recordings with queue items
 export const getMergedRecordings = async (
   page = 1
-): Promise<{ recordings: Recording[]; totalPages: number; apiError: boolean }> => {
+): Promise<{ recordings: Recording[]; totalPages: number; apiError: boolean; hasMore: boolean }> => {
   if (page > 1) {
     try {
       const result = await fetchRecordingsFromApi(page);
-      return { ...result, apiError: false };
+      return { ...result, apiError: false, hasMore: page < result.totalPages };
     } catch (error) {
       console.error("Failed to fetch recordings from API:", error);
-      return { recordings: [], totalPages: 1, apiError: true };
+      return { recordings: [], totalPages: 1, apiError: true, hasMore: false };
     }
   }
 
@@ -132,8 +132,28 @@ export const getMergedRecordings = async (
   const allRecordings = [...apiRecordings, ...queueRecordings];
   allRecordings.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
-  return { recordings: allRecordings, totalPages, apiError };
+  return { recordings: allRecordings, totalPages, apiError, hasMore: page < totalPages };
 };
+
+export async function fetchRecordingsPage(
+  page: number
+): Promise<{ recordings: Recording[]; totalPages: number; hasMore: boolean }> {
+  const result = await getMergedRecordings(page);
+  if (result.apiError && result.recordings.length === 0) {
+    throw new Error("Failed to fetch recordings");
+  }
+  return {
+    recordings: result.recordings,
+    totalPages: result.totalPages,
+    hasMore: page < result.totalPages,
+  };
+}
+
+export async function resolveAudioUriForQuery(recording: Recording): Promise<string> {
+  const uri = await resolveAudioUri(recording.id, recording);
+  if (!uri) throw new Error("Audio URI unavailable");
+  return uri;
+}
 
 // Group recordings by time period
 export type TimePeriod = "thisWeek" | "lastWeek" | "older";
@@ -215,21 +235,3 @@ export const fetchRecordingAnalysis = async (recordingId: string): Promise<Analy
   }
 };
 
-// Subscribe to both API and queue changes
-export const subscribeToRecordingsChanges = (
-  callback: (result: { recordings: Recording[]; totalPages: number; apiError: boolean }) => void
-): (() => void) => {
-  // Initial fetch
-  getMergedRecordings().then(callback);
-
-  // Subscribe to queue changes
-  const queueListener = () => {
-    getMergedRecordings().then(callback);
-  };
-  subscribeToQueueChanges(queueListener);
-
-  // Return cleanup function
-  return () => {
-    unsubscribeFromQueueChanges(queueListener);
-  };
-};

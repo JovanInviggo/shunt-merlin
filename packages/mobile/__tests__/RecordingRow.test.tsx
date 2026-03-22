@@ -213,7 +213,7 @@ describe("audio playback", () => {
     });
 
     // Recording with no localPath — component will call resolveAudioUriForQuery on expand
-    renderWithQuery(<RecordingRow recording={makeRecording({ localPath: null })} />);
+    renderWithQuery(<RecordingRow recording={makeRecording({ localPath: undefined })} />);
 
     const touchables = screen.UNSAFE_getAllByType(TouchableOpacity);
     await act(async () => { fireEvent.press(touchables[1]); });

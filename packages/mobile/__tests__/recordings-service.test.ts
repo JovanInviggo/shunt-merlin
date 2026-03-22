@@ -92,6 +92,7 @@ function makeQueueItem(attempts: number): QueueItem {
       notes: "",
       timestamp: "2024-01-17T10:00:00.000Z",
       platform: "ios",
+      osVersion: "16.0",
     },
     attempts,
     lastAttempt: 0,
@@ -283,7 +284,7 @@ function makeQueueItemForStudy(studyId: string, timestamp: string): QueueItem {
   return {
     id: timestamp,
     audioPath: "/queued_audio/recording.wav",
-    metadata: { studyId, location: "", notes: "", timestamp, platform: "ios" },
+    metadata: { studyId, location: "", notes: "", timestamp, platform: "ios", osVersion: "16.0" },
     attempts: 0,
     lastAttempt: 0,
   };
@@ -439,7 +440,7 @@ describe("fetchRecordingsPage", () => {
     (apiService.get as jest.Mock).mockRejectedValue(new Error("Network error"));
     (getQueue as jest.Mock).mockResolvedValue([{
       id: "q1", audioPath: "/local/q1.wav", attempts: 0, lastAttempt: 0,
-      metadata: { studyId: "S1", location: "chest", notes: "", timestamp: new Date().toISOString(), audioQualityFlags: {}, platform: "ios" },
+      metadata: { studyId: "S1", location: "chest", notes: "", timestamp: new Date().toISOString(), audioQualityFlags: {}, platform: "ios", osVersion: "16.0" },
     }]);
     (getAuthStudyId as jest.Mock).mockResolvedValue("S1");
     const result = await fetchRecordingsPage(1);

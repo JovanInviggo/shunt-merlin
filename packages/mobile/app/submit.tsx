@@ -190,6 +190,7 @@ export default function SubmitScreen() {
       notes: notes.trim(),
       timestamp: timestamp,
       platform: Platform.OS,
+      osVersion: String(Platform.Version),
     };
     // const baseKey = `${metadata.studyId}/${metadata.timestamp}`; // No longer needed for direct upload
 

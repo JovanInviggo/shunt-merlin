@@ -59,6 +59,7 @@ const makeMetadata = (timestamp: string): Metadata => ({
   notes: "",
   timestamp,
   platform: "ios",
+  osVersion: "16.0",
 });
 
 const makeItem = (timestamp: string): QueueItem => ({

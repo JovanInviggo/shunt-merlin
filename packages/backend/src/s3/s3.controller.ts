@@ -51,7 +51,6 @@ export class S3Controller {
     @Req() request: AuthenticatedRequest,
     @Query('filename') filename: string,
   ) {
-    console.log('request.user', request.user);
     if (!request.user.studyId) {
       throw new ForbiddenException('Only participants can request upload URLs');
     }

@@ -1,22 +1,22 @@
-import React, { useEffect, useState } from "react";
+import React, { useMemo, useEffect, useState } from 'react';
 import {
   View,
   SectionList,
   StyleSheet,
   ActivityIndicator,
-  RefreshControl,
   TouchableOpacity,
-} from "react-native";
-import { Text } from "./Text";
-import { RecordingRow } from "./RecordingRow";
+} from 'react-native';
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { Text } from './Text';
+import { RecordingRow } from './RecordingRow';
 import {
   Recording,
-  getMergedRecordings,
+  fetchRecordingsPage,
   groupRecordingsByPeriod,
-  subscribeToRecordingsChanges,
-} from "../utils/recordings-service";
-import { useI18n } from "../locales";
-import { Colors, Fonts } from "../constants/theme";
+} from '../utils/recordings-service';
+import { useI18n } from '../locales';
+import { Colors, Fonts } from '../constants/theme';
+import { getAuthStudyId } from '../utils/auth-storage';
 
 interface RecordingsListProps {
   onEmpty?: () => void;
@@ -24,84 +24,74 @@ interface RecordingsListProps {
 
 export const RecordingsList: React.FC<RecordingsListProps> = ({ onEmpty }) => {
   const { t } = useI18n();
-  const [recordings, setRecordings] = useState<Recording[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [apiError, setApiError] = useState(false);
+  const [studyId, setStudyId] = useState<string | null>(null);
 
   useEffect(() => {
-    setLoading(true);
-
-    const unsubscribe = subscribeToRecordingsChanges(({ recordings: newRecordings, totalPages: newTotalPages, apiError: newApiError }) => {
-      setRecordings(newRecordings);
-      setTotalPages(newTotalPages);
-      setCurrentPage(1);
-      setApiError(newApiError);
-      setLoading(false);
-    });
-
-    return unsubscribe;
+    getAuthStudyId().then(setStudyId);
   }, []);
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    const { recordings: newRecordings, totalPages: newTotalPages, apiError: newApiError } = await getMergedRecordings(1);
-    setRecordings(newRecordings);
-    setTotalPages(newTotalPages);
-    setCurrentPage(1);
-    setApiError(newApiError);
-    setRefreshing(false);
-  };
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    refetch,
+    isLoading,
+    isError,
+  } = useInfiniteQuery({
+    queryKey: ['recordings', studyId],
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) => fetchRecordingsPage(pageParam as number),
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.hasMore ? allPages.length + 1 : undefined,
+    maxPages: 10,
+    enabled: studyId !== null,
+  });
 
-  const loadMore = async () => {
-    if (loadingMore || currentPage >= totalPages) return;
-    setLoadingMore(true);
-    const { recordings: more, apiError: moreError } = await getMergedRecordings(currentPage + 1);
-    if (!moreError) {
-      setRecordings((prev) => [...prev, ...more]);
-      setCurrentPage((p) => p + 1);
-    }
-    setLoadingMore(false);
-  };
+  const allRecordings: Recording[] = useMemo(
+    () => data?.pages.flatMap((p) => p.recordings) ?? [],
+    [data]
+  );
 
-  // Notify parent when truly empty (not just an API error)
+  const grouped = useMemo(() => groupRecordingsByPeriod(allRecordings), [allRecordings]);
+
+  const sections = useMemo(
+    () =>
+      [
+        { title: t.recordings.thisWeek, data: grouped.thisWeek },
+        { title: t.recordings.lastWeek, data: grouped.lastWeek },
+        { title: t.recordings.older, data: grouped.older },
+      ].filter((s) => s.data.length > 0),
+    [grouped, t]
+  );
+
+  const studyIdLoaded = studyId !== null;
+  const isSettled = studyIdLoaded && !isLoading;
+
   useEffect(() => {
-    if (!loading && !apiError && recordings.length === 0 && onEmpty) {
+    if (isSettled && !isError && allRecordings.length === 0 && onEmpty) {
       onEmpty();
     }
-  }, [loading, apiError, recordings.length, onEmpty]);
+  }, [isSettled, isError, allRecordings.length, onEmpty]);
 
-  if (loading) {
+  if (!studyIdLoaded || isLoading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View testID="recordings-loading" style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={Colors.primary} />
       </View>
     );
   }
 
-  if (recordings.length === 0) {
-    if (apiError) {
-      return (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{t.recordings.errorLoading}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={onRefresh}>
-            <Text style={styles.retryText}>{t.recordings.retry}</Text>
-          </TouchableOpacity>
-        </View>
-      );
-    }
-    return null; // Parent handles the no-recordings empty state
+  if (isError && allRecordings.length === 0) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>{t.recordings.errorLoading}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
+          <Text style={styles.retryText}>{t.recordings.retry}</Text>
+        </TouchableOpacity>
+      </View>
+    );
   }
-
-  const grouped = groupRecordingsByPeriod(recordings);
-  const sections = [
-    { title: t.recordings?.thisWeek || "THIS WEEK", data: grouped.thisWeek },
-    { title: t.recordings?.lastWeek || "LAST WEEK", data: grouped.lastWeek },
-    { title: t.recordings?.older || "OLDER", data: grouped.older },
-  ].filter((s) => s.data.length > 0);
 
   return (
     <SectionList
@@ -113,10 +103,11 @@ export const RecordingsList: React.FC<RecordingsListProps> = ({ onEmpty }) => {
       renderSectionHeader={({ section }) => (
         <Text style={styles.sectionTitle}>{section.title}</Text>
       )}
-      onEndReached={loadMore}
+      onEndReached={() => { if (hasNextPage) fetchNextPage(); }}
       onEndReachedThreshold={0.3}
-      ListFooterComponent={loadingMore ? <ActivityIndicator color={Colors.primary} /> : null}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      ListFooterComponent={isFetchingNextPage ? <ActivityIndicator color={Colors.primary} /> : null}
+      refreshing={false}
+      onRefresh={() => refetch()}
       contentContainerStyle={styles.contentContainer}
       stickySectionHeadersEnabled={false}
     />
@@ -124,48 +115,14 @@ export const RecordingsList: React.FC<RecordingsListProps> = ({ onEmpty }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  contentContainer: {
-    paddingBottom: 20,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 16,
-  },
-  errorText: {
-    fontSize: 16,
-    color: Colors.textSecondary,
-  },
-  retryButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 28,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: Colors.primary,
-  },
-  retryText: {
-    color: Colors.primary,
-    fontSize: 15,
-    fontFamily: Fonts.semiBold,
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontFamily: Fonts.semiBold,
-    color: Colors.textSecondary,
-    marginBottom: 8,
-    letterSpacing: 0.5,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
+  container: { flex: 1 },
+  contentContainer: { paddingBottom: 20 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 16 },
+  errorText: { fontSize: 16, color: Colors.textSecondary },
+  retryButton: { paddingVertical: 10, paddingHorizontal: 28, borderRadius: 20, borderWidth: 1, borderColor: Colors.primary },
+  retryText: { color: Colors.primary, fontSize: 15, fontFamily: Fonts.semiBold },
+  sectionTitle: { fontSize: 12, fontFamily: Fonts.semiBold, color: Colors.textSecondary, marginBottom: 8, letterSpacing: 0.5, paddingHorizontal: 14, paddingVertical: 8 },
 });
 
 export default RecordingsList;

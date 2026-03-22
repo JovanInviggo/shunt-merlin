@@ -1,233 +1,133 @@
-jest.mock("../utils/recordings-service", () => ({
-  subscribeToRecordingsChanges: jest.fn(),
-  getMergedRecordings: jest.fn().mockResolvedValue({ recordings: [], totalPages: 1 }),
-  groupRecordingsByPeriod: jest.fn().mockImplementation((recs: any[]) => ({
-    thisWeek: recs,
-    lastWeek: [],
-    older: [],
-  })),
+// ── Mocks ─────────────────────────────────────────────────────────────────────
+
+jest.mock('../utils/recordings-service', () => ({
+  fetchRecordingsPage: jest.fn(),
+  groupRecordingsByPeriod: jest.requireActual('../utils/recordings-service').groupRecordingsByPeriod,
 }));
 
-jest.mock("../locales", () => ({
+jest.mock('../utils/query-client', () => ({
+  queryClient: {
+    invalidateQueries: jest.fn(),
+    resetQueries: jest.fn(),
+  },
+}));
+
+jest.mock('../components/RecordingRow', () => ({
+  RecordingRow: ({ recording }: { recording: { id: string } }) => {
+    const { Text } = require('react-native');
+    return <Text testID={`row-${recording.id}`}>{recording.id}</Text>;
+  },
+}));
+
+jest.mock('../locales', () => ({
   useI18n: () => ({
     t: {
-      recordings: { thisWeek: "THIS WEEK", lastWeek: "LAST WEEK", older: "OLDER" },
+      recordings: {
+        thisWeek: 'THIS WEEK',
+        lastWeek: 'LAST WEEK',
+        older: 'OLDER',
+        errorLoading: 'Failed to load recordings.',
+        retry: 'Retry',
+      },
     },
-    language: "en",
-    setLanguage: jest.fn(),
   }),
-  interpolate: (text: string, params: Record<string, any>) =>
-    text.replace(/\{\{(\w+)\}\}/g, (_, k) => params[k]?.toString() ?? `{{${k}}}`),
 }));
 
-jest.mock("../components/RecordingRow", () => {
-  const React = require("react");
-  const { Text } = require("react-native");
+jest.mock('react-native-safe-area-context', () => {
+  const React = require('react');
+  const { View } = require('react-native');
   return {
-    RecordingRow: ({ recording }: any) => (
-      <Text testID={`row-${recording.id}`}>{recording.timestamp}</Text>
-    ),
+    SafeAreaView: ({ children, ...rest }: any) => <View {...rest}>{children}</View>,
   };
 });
 
-import React from "react";
-import { render, screen, act, fireEvent } from "@testing-library/react-native";
-import {
-  subscribeToRecordingsChanges,
-  getMergedRecordings,
-} from "../utils/recordings-service";
-import { RecordingsList } from "../components/RecordingsList";
+jest.mock('../utils/auth-storage', () => ({
+  getAuthStudyId: jest.fn().mockResolvedValue('S1'),
+}));
 
-const makeRecording = (id: string) => ({
+// ── Imports ───────────────────────────────────────────────────────────────────
+
+import React from 'react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { RecordingsList } from '../components/RecordingsList';
+import { fetchRecordingsPage } from '../utils/recordings-service';
+import type { Recording } from '../utils/recordings-service';
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+const makeRecording = (id: string): Recording => ({
   id,
-  timestamp: "2026-03-02T10:00:00.000Z",
-  studyId: "s1",
-  status: "uploaded",
-  localPath: null,
-  s3Key: `s1/${id}.wav`,
+  timestamp: new Date().toISOString(),
+  studyId: 'S1',
+  status: 'uploaded',
+  s3Key: `key/${id}`,
 });
 
-beforeEach(() => {
-  jest.clearAllMocks();
-  (getMergedRecordings as jest.Mock).mockResolvedValue({ recordings: [], totalPages: 1 });
-
-  (subscribeToRecordingsChanges as jest.Mock).mockImplementation((cb) => {
-    cb({ recordings: [], totalPages: 1 });
-    return jest.fn();
-  });
+const makePage = (recordings: Recording[], hasMore = false) => ({
+  recordings,
+  totalPages: hasMore ? 2 : 1,
+  hasMore,
 });
 
-describe("loading state", () => {
-  it("shows ActivityIndicator while waiting for first subscription event", async () => {
-    // Subscription does NOT immediately call back → stays in loading state
-    (subscribeToRecordingsChanges as jest.Mock).mockReturnValue(jest.fn());
+/** Wrap component in a fresh QueryClient for test isolation */
+const renderWithQuery = (ui: React.ReactElement) => {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: 0 } },
+  });
+  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+};
 
-    render(<RecordingsList />);
-    await act(async () => {});
+// ── Tests ─────────────────────────────────────────────────────────────────────
 
-    // loading=true → ActivityIndicator rendered, no section labels
-    expect(screen.queryByText("THIS WEEK")).toBeNull();
+describe('RecordingsList', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
   });
 
-  it("hides loader and renders nothing after subscription fires with empty array", async () => {
-    render(<RecordingsList />);
-    await act(async () => {});
-
-    // loading=false, recordings=[] → component returns null
-    expect(screen.queryByText("THIS WEEK")).toBeNull();
-  });
-});
-
-describe("rendering recordings", () => {
-  it("renders the THIS WEEK section when recordings are present", async () => {
-    (subscribeToRecordingsChanges as jest.Mock).mockImplementation((cb) => {
-      cb({ recordings: [makeRecording("r1")], totalPages: 1 });
-      return jest.fn();
-    });
-
-    render(<RecordingsList />);
-    await act(async () => {});
-
-    expect(screen.getByText("THIS WEEK")).toBeTruthy();
-    expect(screen.getByTestId("row-r1")).toBeTruthy();
+  it('shows loading indicator while fetching', async () => {
+    (fetchRecordingsPage as jest.Mock).mockReturnValue(new Promise(() => {})); // never resolves
+    renderWithQuery(<RecordingsList />);
+    expect(screen.getByTestId('recordings-loading')).toBeTruthy();
   });
 
-  it("renders one RecordingRow per recording", async () => {
-    (subscribeToRecordingsChanges as jest.Mock).mockImplementation((cb) => {
-      cb({ recordings: [makeRecording("r1"), makeRecording("r2"), makeRecording("r3")], totalPages: 1 });
-      return jest.fn();
-    });
-
-    render(<RecordingsList />);
-    await act(async () => {});
-
-    expect(screen.getByTestId("row-r1")).toBeTruthy();
-    expect(screen.getByTestId("row-r2")).toBeTruthy();
-    expect(screen.getByTestId("row-r3")).toBeTruthy();
+  it('renders recording rows after successful fetch', async () => {
+    (fetchRecordingsPage as jest.Mock).mockResolvedValue(
+      makePage([makeRecording('rec-1'), makeRecording('rec-2')])
+    );
+    renderWithQuery(<RecordingsList />);
+    await waitFor(() => expect(screen.getByTestId('row-rec-1')).toBeTruthy());
+    expect(screen.getByTestId('row-rec-2')).toBeTruthy();
   });
-});
 
-describe("onEmpty callback", () => {
-  it("calls onEmpty when recordings list is empty after loading", async () => {
+  it('shows error UI and retry button when fetch fails', async () => {
+    (fetchRecordingsPage as jest.Mock).mockRejectedValue(new Error('Network error'));
+    renderWithQuery(<RecordingsList />);
+    await waitFor(() => expect(screen.getByText('Failed to load recordings.')).toBeTruthy());
+    expect(screen.getByText('Retry')).toBeTruthy();
+  });
+
+  it('calls onEmpty when fetch returns no recordings', async () => {
+    (fetchRecordingsPage as jest.Mock).mockResolvedValue(makePage([]));
     const onEmpty = jest.fn();
-
-    render(<RecordingsList onEmpty={onEmpty} />);
-    await act(async () => {});
-
-    expect(onEmpty).toHaveBeenCalledTimes(1);
+    renderWithQuery(<RecordingsList onEmpty={onEmpty} />);
+    await waitFor(() => expect(onEmpty).toHaveBeenCalledTimes(1));
   });
 
-  it("does NOT call onEmpty when recordings are present", async () => {
+  it('does not call onEmpty when recordings exist', async () => {
+    (fetchRecordingsPage as jest.Mock).mockResolvedValue(makePage([makeRecording('r1')]));
     const onEmpty = jest.fn();
-    (subscribeToRecordingsChanges as jest.Mock).mockImplementation((cb) => {
-      cb({ recordings: [makeRecording("r1")], totalPages: 1 });
-      return jest.fn();
-    });
-
-    render(<RecordingsList onEmpty={onEmpty} />);
-    await act(async () => {});
-
+    renderWithQuery(<RecordingsList onEmpty={onEmpty} />);
+    await waitFor(() => screen.getByTestId('row-r1'));
     expect(onEmpty).not.toHaveBeenCalled();
   });
-});
 
-describe("subscription lifecycle", () => {
-  it("subscribes to recordings changes on mount", async () => {
-    render(<RecordingsList />);
-    await act(async () => {});
-
-    expect(subscribeToRecordingsChanges).toHaveBeenCalledTimes(1);
-  });
-
-  it("unsubscribes on unmount", async () => {
-    const mockUnsub = jest.fn();
-    (subscribeToRecordingsChanges as jest.Mock).mockReturnValue(mockUnsub);
-
-    const { unmount } = render(<RecordingsList />);
-    await act(async () => {});
-
-    act(() => { unmount(); });
-
-    expect(mockUnsub).toHaveBeenCalledTimes(1);
-  });
-
-  it("re-renders when subscription delivers new recordings", async () => {
-    let capturedCb: ((result: { recordings: any[]; totalPages: number }) => void) | undefined;
-    (subscribeToRecordingsChanges as jest.Mock).mockImplementation((cb) => {
-      capturedCb = cb;
-      cb({ recordings: [], totalPages: 1 });
-      return jest.fn();
-    });
-
-    render(<RecordingsList />);
-    await act(async () => {});
-
-    await act(async () => { capturedCb?.({ recordings: [makeRecording("new1")], totalPages: 1 }); });
-
-    expect(screen.getByTestId("row-new1")).toBeTruthy();
-  });
-});
-
-describe("infinite scroll / pagination", () => {
-  it("calls loadMore with page 2 when onEndReached fires and more pages exist", async () => {
-    (subscribeToRecordingsChanges as jest.Mock).mockImplementation((cb) => {
-      cb({ recordings: [makeRecording("r1")], totalPages: 2 });
-      return jest.fn();
-    });
-    (getMergedRecordings as jest.Mock).mockResolvedValue({
-      recordings: [makeRecording("r2")],
-      totalPages: 2,
-    });
-
-    render(<RecordingsList />);
-    await act(async () => {});
-
-    const list = screen.getByTestId("recordings-list");
-    await act(async () => {
-      fireEvent(list, "endReached");
-    });
-
-    expect(getMergedRecordings).toHaveBeenCalledWith(2);
-    expect(screen.getByTestId("row-r2")).toBeTruthy();
-  });
-
-  it("does not call getMergedRecordings when already on last page", async () => {
-    (subscribeToRecordingsChanges as jest.Mock).mockImplementation((cb) => {
-      cb({ recordings: [makeRecording("r1")], totalPages: 1 });
-      return jest.fn();
-    });
-
-    render(<RecordingsList />);
-    await act(async () => {});
-
-    const list = screen.getByTestId("recordings-list");
-    await act(async () => {
-      fireEvent(list, "endReached");
-    });
-
-    expect(getMergedRecordings).not.toHaveBeenCalled();
-  });
-
-  it("appends page 2 results to existing recordings list", async () => {
-    (subscribeToRecordingsChanges as jest.Mock).mockImplementation((cb) => {
-      cb({ recordings: [makeRecording("r1")], totalPages: 2 });
-      return jest.fn();
-    });
-    (getMergedRecordings as jest.Mock).mockResolvedValue({
-      recordings: [makeRecording("r2"), makeRecording("r3")],
-      totalPages: 2,
-    });
-
-    render(<RecordingsList />);
-    await act(async () => {});
-
-    const list = screen.getByTestId("recordings-list");
-    await act(async () => {
-      fireEvent(list, "endReached");
-    });
-
-    expect(screen.getByTestId("row-r1")).toBeTruthy();
-    expect(screen.getByTestId("row-r2")).toBeTruthy();
-    expect(screen.getByTestId("row-r3")).toBeTruthy();
+  it('pull-to-refresh triggers refetch', async () => {
+    (fetchRecordingsPage as jest.Mock).mockResolvedValue(makePage([makeRecording('r1')]));
+    renderWithQuery(<RecordingsList />);
+    await waitFor(() => screen.getByTestId('recordings-list'));
+    const list = screen.getByTestId('recordings-list');
+    fireEvent(list, 'refresh');
+    await waitFor(() => expect(fetchRecordingsPage).toHaveBeenCalledTimes(2));
   });
 });

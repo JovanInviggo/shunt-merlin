@@ -5,7 +5,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { clearQueue } from "../utils/upload-queue";
 import { RecordingsList } from "../components/RecordingsList";
-import { getMergedRecordings } from "../utils/recordings-service";
 import { useI18n } from "../locales";
 import { Colors, Fonts } from "../constants/theme";
 import { Ionicons } from "@expo/vector-icons";
@@ -13,7 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 export default function Index() {
   const { t } = useI18n();
   const { cancelled } = useLocalSearchParams<{ cancelled?: string }>();
-  const [hasRecordings, setHasRecordings] = useState<boolean | null>(null);
+  const [hasRecordings, setHasRecordings] = useState<boolean>(true);
   const [showCancelledToast, setShowCancelledToast] = useState(false);
 
   useEffect(() => {
@@ -23,17 +22,6 @@ export default function Index() {
       return () => clearTimeout(timer);
     }
   }, [cancelled]);
-
-  useEffect(() => {
-    getMergedRecordings().then(({ recordings, apiError }) => {
-      // On API error with no local queue items, let RecordingsList show the error state
-      if (apiError && recordings.length === 0) {
-        setHasRecordings(true); // mount RecordingsList so it can show retry
-      } else {
-        setHasRecordings(recordings.length > 0);
-      }
-    });
-  }, []);
 
   // Show empty state while loading or when no recordings
   const showEmptyState = hasRecordings === false;
@@ -49,10 +37,7 @@ export default function Index() {
 
       <Text style={styles.title}>{t.common.appTitle}</Text>
 
-      {hasRecordings === null ? (
-        // Loading state
-        <View style={styles.contentBlock} />
-      ) : showEmptyState ? (
+      {showEmptyState ? (
         // Empty state
         <View style={styles.contentBlock}>
           <Image source={require('../assets/images/wave.png')} />

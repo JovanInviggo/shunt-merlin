@@ -9,10 +9,6 @@ jest.mock("../utils/upload-queue", () => ({
   clearQueue: jest.fn().mockResolvedValue(undefined),
 }));
 
-jest.mock("../utils/recordings-service", () => ({
-  getMergedRecordings: jest.fn().mockResolvedValue({ recordings: [], apiError: null }),
-}));
-
 jest.mock("../components/RecordingsList", () => ({
   RecordingsList: () => null,
 }));

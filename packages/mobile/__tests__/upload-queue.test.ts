@@ -23,16 +23,24 @@ jest.mock("../utils/api-service", () => ({
   apiService: { post: jest.fn(), get: jest.fn() },
 }));
 
+jest.mock("../utils/query-client", () => ({
+  queryClient: { invalidateQueries: jest.fn() },
+}));
+
 import * as FileSystem from "expo-file-system";
 import {
   getQueue,
   addToQueue,
   removeFromQueue,
+  processQueue,
   subscribeToQueueChanges,
   unsubscribeFromQueueChanges,
   type Metadata,
   type QueueItem,
 } from "../utils/upload-queue";
+import { queryClient } from "../utils/query-client";
+import { getPresignedUploadUrl, uploadFileWithPresignedUrl } from "../utils/s3-service";
+import { apiService } from "../utils/api-service";
 
 /** Flush all pending microtasks and macrotasks in the queue. */
 const flushPromises = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
@@ -287,3 +295,30 @@ describe("upload-queue listener management", () => {
   });
 });
 
+describe("processQueue query invalidation", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.mocked(FileSystem.getInfoAsync).mockResolvedValue({ exists: true } as any);
+    jest.mocked(FileSystem.readAsStringAsync).mockResolvedValue("[]");
+  });
+
+  it("invalidates recordings query after successful upload", async () => {
+    const item = makeItem("2026-01-01T00:00:00.000Z");
+    item.metadata = { ...item.metadata, studyId: "STUDY001" };
+
+    // Queue file exists and contains the item
+    jest.mocked(FileSystem.getInfoAsync).mockResolvedValue({ exists: true } as any);
+    jest.mocked(FileSystem.readAsStringAsync).mockResolvedValue(JSON.stringify([item]));
+
+    (getPresignedUploadUrl as jest.Mock).mockResolvedValue({ uploadUrl: "https://s3/url", s3Key: "recordings/STUDY001/file.wav" });
+    (uploadFileWithPresignedUrl as jest.Mock).mockResolvedValue(undefined);
+    (apiService.post as jest.Mock).mockResolvedValue({});
+
+    await processQueue();
+    await flushPromises();
+
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["recordings", "STUDY001"],
+    });
+  });
+});

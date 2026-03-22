@@ -4,6 +4,7 @@ import { getPresignedUploadUrl, uploadFileWithPresignedUrl } from "./s3-service"
 import { apiService } from "./api-service";
 import { API_CONFIG } from "../config/api";
 import Constants from "expo-constants";
+import { queryClient } from "./query-client";
 
 const QUEUE_FILE_NAME = "upload-queue.json";
 const QUEUE_FILE_PATH = (FileSystem.documentDirectory || "") + QUEUE_FILE_NAME;
@@ -260,7 +261,7 @@ const deleteLocalFileSafely = async (
 
 // --- Queue Processing ---
 
-const processQueue = async (): Promise<void> => {
+export const processQueue = async (): Promise<void> => {
   if (isProcessing) {
     // console.log("Queue processing already in progress.");
     return;
@@ -354,6 +355,7 @@ const processQueue = async (): Promise<void> => {
 
       await removeFromQueue(itemToProcess.id);
       await deleteLocalFileSafely(itemToProcess.audioPath, "success");
+      queryClient.invalidateQueries({ queryKey: ["recordings", itemToProcess.metadata.studyId] });
     } catch (uploadError) {
       console.warn(
         `Failed to upload queue item: ${itemToProcess.id}. Updating attempt count.`,

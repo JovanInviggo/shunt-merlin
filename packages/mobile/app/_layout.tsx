@@ -23,6 +23,8 @@ import { initializeQueueProcessing, stopQueueProcessing } from "../utils/upload-
 import { apiService } from "../utils/api-service";
 import { Colors } from "../constants/theme";
 import { I18nProvider } from "../locales";
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from '../utils/query-client';
 
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { useAuthCheck } from "../hooks/useAuthCheck";
@@ -48,6 +50,7 @@ Audio.setAudioModeAsync({
 apiService.setLogoutHandler(() => {
   stopQueueProcessing();
   stopAllAudio();
+  queryClient.clear();
 });
 
 export default function RootLayout() {
@@ -79,35 +82,37 @@ export default function RootLayout() {
   const { isChecking } = useAuthCheck();
 
   return (
-    <I18nProvider initialLanguage="de">
-    <ErrorBoundary>
-      <PaperProvider>
-        <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-          <Stack
-            screenOptions={{
-              headerShown: true,
-              header: () => <MyHeader />,
-              contentStyle: { backgroundColor: Colors.background },
-            }}
-          >
-            <Stack.Screen name="index" />
-            <Stack.Screen name="login" options={{ headerShown: false }} />
-            <Stack.Screen name="record" options={{ headerShown: false, presentation: 'modal' }} />
-            <Stack.Screen name="submit" />
-            <Stack.Screen name="settings" options={{ headerShown: false }} />
-            <Stack.Screen name="guideline" options={{ headerShown: false }} />
-            <Stack.Screen name="recording-overview" options={{ headerShown: false }} />
-          </Stack>
-          {isChecking && (
-            <View style={styles.authOverlay}>
-              <ActivityIndicator size="large" color={Colors.primary} />
-            </View>
-          )}
-          <StatusBar style="auto" />
-        </ThemeProvider>
-      </PaperProvider>
-    </ErrorBoundary>
-    </I18nProvider>
+    <QueryClientProvider client={queryClient}>
+      <I18nProvider initialLanguage="de">
+      <ErrorBoundary>
+        <PaperProvider>
+          <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+            <Stack
+              screenOptions={{
+                headerShown: true,
+                header: () => <MyHeader />,
+                contentStyle: { backgroundColor: Colors.background },
+              }}
+            >
+              <Stack.Screen name="index" />
+              <Stack.Screen name="login" options={{ headerShown: false }} />
+              <Stack.Screen name="record" options={{ headerShown: false, presentation: 'modal' }} />
+              <Stack.Screen name="submit" />
+              <Stack.Screen name="settings" options={{ headerShown: false }} />
+              <Stack.Screen name="guideline" options={{ headerShown: false }} />
+              <Stack.Screen name="recording-overview" options={{ headerShown: false }} />
+            </Stack>
+            {isChecking && (
+              <View style={styles.authOverlay}>
+                <ActivityIndicator size="large" color={Colors.primary} />
+              </View>
+            )}
+            <StatusBar style="auto" />
+          </ThemeProvider>
+        </PaperProvider>
+      </ErrorBoundary>
+      </I18nProvider>
+    </QueryClientProvider>
   );
 }
 

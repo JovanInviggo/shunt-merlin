@@ -14,7 +14,7 @@ const API_BASE_URLS = {
 };
 
 module.exports = ({ config }) => {
-  const profile = process.env.EAS_BUILD_PROFILE || "development";
+  const profile = process.env.EAS_BUILD_PROFILE || "local";
   const getBundleIdentifier = () => {
     const baseId = "com.carealytix.ShuntMerlin";
     return profile === "production"

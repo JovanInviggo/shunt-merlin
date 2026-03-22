@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import {
   View,
   ScrollView,
@@ -15,13 +15,14 @@ import {
   AnalysisResult,
   AnalysisStatus,
   fetchRecordingAnalysis,
-  resolveAudioUri,
+  resolveAudioUriForQuery,
 } from "../utils/recordings-service";
 import { formatRelativeTime, formatTime } from "../utils/recording-row-utils";
 import { useAudioPlayer } from "../hooks/useAudioPlayer";
 import { StaticWaveform } from "../components/StaticWaveform";
 import { useI18n } from "../locales";
 import { Colors, Fonts } from "../constants/theme";
+import { useQuery } from "@tanstack/react-query";
 
 const analysisStatusToSeverity: Record<AnalysisStatus, AlertSeverity> = {
   no_abnormalities: "success",
@@ -43,26 +44,29 @@ export default function RecordingOverviewScreen() {
   const { isPlaying, isLoading, positionMillis, durationMillis, loadSound, togglePlayback } =
     useAudioPlayer();
 
-  const [audioPath, setAudioPath] = useState<string | null>(params.localPath || null);
-  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
-  const [analysisLoading, setAnalysisLoading] = useState(true);
+  const { data: analysis, isLoading: analysisLoading } = useQuery({
+    queryKey: ['recording-analysis', params.id],
+    queryFn: () => fetchRecordingAnalysis(params.id),
+    enabled: !!params.id,
+    staleTime: 5 * 60_000,
+    gcTime: 10 * 60_000,
+  });
 
-  useEffect(() => {
-    if (params.id) {
-      setAnalysisLoading(true);
-      fetchRecordingAnalysis(params.id)
-        .then(setAnalysis)
-        .finally(() => setAnalysisLoading(false));
-    }
-  }, [params.id]);
-
-  useEffect(() => {
-    if (!audioPath && params.s3Key) {
-      resolveAudioUri(params.id, { s3Key: params.s3Key })
-        .then(setAudioPath)
-        .catch(() => { });
-    }
-  }, []);
+  const recording = {
+    id: params.id,
+    localPath: params.localPath,
+    s3Key: params.s3Key,
+    studyId: '',
+    timestamp: '',
+    status: 'uploaded' as const,
+  };
+  const { data: audioPath } = useQuery({
+    queryKey: ['audio-url', params.id],
+    queryFn: () => resolveAudioUriForQuery(recording),
+    staleTime: 14.5 * 60_000,
+    gcTime: 14.5 * 60_000,
+    enabled: !!params.id,
+  });
 
   // Auto-load sound as soon as the path is available
   useEffect(() => {

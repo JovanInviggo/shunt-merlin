@@ -39,7 +39,7 @@ jest.mock("../utils/recordings-service", () => ({
     description: "Your shunt sounds are within normal range.",
     explanation: "No unusual patterns detected.",
   }),
-  resolveAudioUri: jest.fn().mockResolvedValue("/cache/recording_rec-1.wav"),
+  resolveAudioUriForQuery: jest.fn().mockResolvedValue("/cache/recording_rec-1.wav"),
 }));
 
 jest.mock("../components/StaticWaveform", () => ({
@@ -112,12 +112,18 @@ jest.mock("../components/Alert", () => ({
 import React from "react";
 import { TouchableOpacity } from "react-native";
 import { render, screen, fireEvent, act } from "@testing-library/react-native";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useLocalSearchParams } from "expo-router";
 import { useAudioPlayer } from "../hooks/useAudioPlayer";
-import { resolveAudioUri, fetchRecordingAnalysis } from "../utils/recordings-service";
+import { resolveAudioUriForQuery, fetchRecordingAnalysis } from "../utils/recordings-service";
 import RecordingOverviewScreen from "../app/recording-overview";
 
 // ── Setup ─────────────────────────────────────────────────────────────────────
+
+const renderWithQuery = (ui: React.ReactElement) => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+};
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -147,13 +153,13 @@ beforeEach(() => {
 describe("RecordingOverviewScreen", () => {
   describe("rendering", () => {
     it("renders the title", async () => {
-      render(<RecordingOverviewScreen />);
+      renderWithQuery(<RecordingOverviewScreen />);
       await act(async () => {});
       expect(screen.getByText("Shunt recording")).toBeTruthy();
     });
 
     it("renders a subtitle string for the timestamp", async () => {
-      render(<RecordingOverviewScreen />);
+      renderWithQuery(<RecordingOverviewScreen />);
       await act(async () => {});
       // subtitle text is whatever formatRelativeTime returns — just check it's non-empty
       // Node's toLocaleDateString may return "Mar 2, 2026" style or "2 Mar 2026" style
@@ -164,7 +170,7 @@ describe("RecordingOverviewScreen", () => {
     });
 
     it("renders time display as 00:00 initially", async () => {
-      render(<RecordingOverviewScreen />);
+      renderWithQuery(<RecordingOverviewScreen />);
       await act(async () => {});
       expect(screen.getAllByText("00:00").length).toBeGreaterThan(0);
     });
@@ -172,7 +178,7 @@ describe("RecordingOverviewScreen", () => {
 
   describe("waveform", () => {
     it("shows StaticWaveform when audioPath resolves for uploaded recording", async () => {
-      render(<RecordingOverviewScreen />);
+      renderWithQuery(<RecordingOverviewScreen />);
       await act(async () => {
         await new Promise<void>(resolve => setTimeout(resolve, 0));
       });
@@ -187,14 +193,14 @@ describe("RecordingOverviewScreen", () => {
         localPath: "file:///local/rec-1.wav",
         status: "uploading",
       });
-      render(<RecordingOverviewScreen />);
+      renderWithQuery(<RecordingOverviewScreen />);
       await act(async () => {});
       expect(screen.queryByTestId("static-waveform")).toBeTruthy();
     });
   });
 
   describe("audio playback", () => {
-    it("calls resolveAudioUri and loadSound when play button is pressed (first time)", async () => {
+    it("calls resolveAudioUriForQuery on mount and loadSound when audio resolves", async () => {
       const mockLoadSound = jest.fn().mockResolvedValue(undefined);
       const mockTogglePlayback = jest.fn().mockResolvedValue(undefined);
 
@@ -208,24 +214,18 @@ describe("RecordingOverviewScreen", () => {
         togglePlayback: mockTogglePlayback,
       });
 
-      render(<RecordingOverviewScreen />);
-      await act(async () => {});
+      renderWithQuery(<RecordingOverviewScreen />);
+      await act(async () => {
+        await new Promise<void>(resolve => setTimeout(resolve, 0));
+      });
 
-      const touchables = screen.UNSAFE_getAllByType(TouchableOpacity);
-      // Play button: back(0), settings(1), play(2)
-      const playButton = touchables[2];
-
-      await act(async () => { fireEvent.press(playButton); });
-
-      expect(resolveAudioUri).toHaveBeenCalledWith(
-        "rec-1",
-        expect.objectContaining({ s3Key: "study-1/rec-1" })
+      expect(resolveAudioUriForQuery).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "rec-1", s3Key: "study-1/rec-1" })
       );
       expect(mockLoadSound).toHaveBeenCalledWith("/cache/recording_rec-1.wav");
-      expect(mockTogglePlayback).toHaveBeenCalled();
     });
 
-    it("calls togglePlayback directly when sound already loaded", async () => {
+    it("calls togglePlayback when play button is pressed", async () => {
       const mockLoadSound = jest.fn().mockResolvedValue(undefined);
       const mockTogglePlayback = jest.fn().mockResolvedValue(undefined);
 
@@ -239,7 +239,7 @@ describe("RecordingOverviewScreen", () => {
         togglePlayback: mockTogglePlayback,
       });
 
-      render(<RecordingOverviewScreen />);
+      renderWithQuery(<RecordingOverviewScreen />);
       await act(async () => {});
 
       const touchables = screen.UNSAFE_getAllByType(TouchableOpacity);
@@ -252,12 +252,12 @@ describe("RecordingOverviewScreen", () => {
 
   describe("AI analysis", () => {
     it("calls fetchRecordingAnalysis with the recording id on mount", () => {
-      render(<RecordingOverviewScreen />);
+      renderWithQuery(<RecordingOverviewScreen />);
       expect(fetchRecordingAnalysis).toHaveBeenCalledWith("rec-1");
     });
 
     it("renders the thank you message in the analysis card", async () => {
-      render(<RecordingOverviewScreen />);
+      renderWithQuery(<RecordingOverviewScreen />);
       await act(async () => {});
       expect(
         screen.getByText("Thank you for your recording and participating in our study!")

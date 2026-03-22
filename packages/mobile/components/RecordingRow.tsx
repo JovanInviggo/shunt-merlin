@@ -9,7 +9,8 @@ import {
 import { Text } from "./Text";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { Recording, resolveAudioUri } from "../utils/recordings-service";
+import { useQuery } from "@tanstack/react-query";
+import { Recording, resolveAudioUriForQuery } from "../utils/recordings-service";
 import { formatRelativeTime, getStatusColor, formatTime } from "../utils/recording-row-utils";
 import { useAudioPlayer } from "../hooks/useAudioPlayer";
 import { StaticWaveform } from "./StaticWaveform";
@@ -19,23 +20,21 @@ interface RecordingRowProps {
   recording: Recording;
 }
 
-export const RecordingRow: React.FC<RecordingRowProps> = ({ recording }) => {
+export const RecordingRow: React.FC<RecordingRowProps> = React.memo(({ recording }) => {
   const [expanded, setExpanded] = useState(false);
-  const [audioPath, setAudioPath] = useState<string | null>(recording.localPath || null);
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const expandAnim = useRef(new Animated.Value(0)).current;
 
   const { isPlaying, isLoading, positionMillis, durationMillis, loadSound, togglePlayback } =
     useAudioPlayer();
 
-  // Resolve audio path once on first expand
-  useEffect(() => {
-    if (expanded && !audioPath && recording.s3Key) {
-      resolveAudioUri(recording.id, { s3Key: recording.s3Key })
-        .then(setAudioPath)
-        .catch(() => {});
-    }
-  }, [expanded]);
+  const { data: audioPath, isError: audioError } = useQuery({
+    queryKey: ["audio-url", recording.id],
+    queryFn: () => resolveAudioUriForQuery(recording),
+    enabled: expanded,
+    staleTime: 14.5 * 60_000,
+    gcTime: 14.5 * 60_000,
+  });
 
   // Auto-load sound as soon as the path is available while expanded
   useEffect(() => {
@@ -133,7 +132,7 @@ export const RecordingRow: React.FC<RecordingRowProps> = ({ recording }) => {
             <TouchableOpacity
               onPress={handlePlayPress}
               style={styles.playButton}
-              disabled={isLoading || durationMillis === 0}
+              disabled={isLoading || durationMillis === 0 || audioError}
             >
               {isLoading || durationMillis === 0 ? (
                 <ActivityIndicator size="small" color={Colors.textSecondary} />
@@ -151,7 +150,7 @@ export const RecordingRow: React.FC<RecordingRowProps> = ({ recording }) => {
       )}
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

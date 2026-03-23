@@ -20,7 +20,8 @@ const Patients = () => {
   const navigate = useNavigate();
   const { t } = useI18n();
   const { data: studies, isLoading: studiesLoading, error: studiesError } = useStudies();
-  const { data: recordings } = useRecordings();
+  const { data: recordingsPage } = useRecordings(1, 100);
+  const recordings = recordingsPage?.data;
   const createStudy = useCreateStudy();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newPatient, setNewPatient] = useState({

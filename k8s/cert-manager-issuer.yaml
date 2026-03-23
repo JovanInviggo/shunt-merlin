@@ -1,0 +1,36 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: jovan.matic@inviggo.com
+    privateKeySecretRef:
+      name: letsencrypt-prod-account-key
+    solvers:
+      - selector:
+          dnsNames:
+            - dev-dashboard.shuntwizard.com
+            - dev-api.shuntwizard.com
+        http01:
+          gatewayHTTPRoute:
+            parentRefs:
+              - name: dev-gateway
+                namespace: shunt-wizzard-dev
+                sectionName: http
+                kind: Gateway
+                group: gateway.networking.k8s.io
+
+      - selector:
+          dnsNames:
+            - dashboard.shuntwizard.com
+            - api.shuntwizard.com
+        http01:
+          gatewayHTTPRoute:
+            parentRefs:
+              - name: prod-gateway
+                namespace: shunt-wizzard-prod
+                sectionName: http
+                kind: Gateway
+                group: gateway.networking.k8s.io

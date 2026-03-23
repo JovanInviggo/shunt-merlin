@@ -33,7 +33,8 @@ const Home = () => {
   } = useToast();
   const { t } = useI18n();
   const { data: studies } = useStudies();
-  const { data: recordings, isLoading: recordingsLoading, error: recordingsError } = useRecordings();
+  const { data: recordingsPage, isLoading: recordingsLoading, error: recordingsError } = useRecordings(1, 10);
+  const recordings = recordingsPage?.data;
   const [selectedRecording, setSelectedRecording] = useState<number | null>(null);
   const [classifications, setClassifications] = useState<{
     [key: number]: string;
@@ -346,7 +347,7 @@ const Home = () => {
 
     <Card>
       <CardHeader>
-        <CardTitle>{t("home.newRecordings.title")}</CardTitle>
+        <CardTitle>{recentRecordings.length} {t("home.newRecordings.title")}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-3">

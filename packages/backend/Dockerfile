@@ -1,35 +1,52 @@
 FROM node:20-alpine AS base
-
+RUN corepack enable && corepack prepare pnpm@10.32.1 --activate
 WORKDIR /app
 
-# Development stage
+# Development stage — used by docker-compose with volume mounts
 FROM base AS development
 
-COPY package*.json ./
-RUN npm install
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
+COPY patches ./patches
+COPY packages/backend/package.json ./packages/backend/
+COPY packages/dashboard/package.json ./packages/dashboard/
+COPY packages/mobile/package.json ./packages/mobile/
+RUN pnpm install --frozen-lockfile
 
-COPY entrypoint.sh ./
+COPY packages/backend/entrypoint.sh ./packages/backend/
+COPY packages/backend ./packages/backend
 
-COPY . .
-
+WORKDIR /app/packages/backend
 ENTRYPOINT ["sh", "./entrypoint.sh"]
-CMD ["npm", "run", "start:dev"]
+CMD ["pnpm", "run", "start:dev"]
+
+# Production deps stage — only prod dependencies, cached independently from build
+FROM base AS deps
+
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
+COPY patches ./patches
+COPY packages/backend/package.json ./packages/backend/
+COPY packages/dashboard/package.json ./packages/dashboard/
+COPY packages/mobile/package.json ./packages/mobile/
+RUN pnpm install --frozen-lockfile --prod --filter=backend
 
 # Build stage
 FROM base AS build
 
-COPY package*.json ./
-RUN npm install
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
+COPY patches ./patches
+COPY packages/backend/package.json ./packages/backend/
+COPY packages/dashboard/package.json ./packages/dashboard/
+COPY packages/mobile/package.json ./packages/mobile/
+RUN pnpm install --frozen-lockfile --filter=backend
 
-COPY . .
-RUN npm run build
+COPY packages/backend ./packages/backend
+RUN pnpm --filter=backend run build
 
-# Production stage
-FROM base AS production
+# Production stage — minimal image, no dev deps, no source
+FROM node:20-alpine AS production
 
-COPY package*.json ./
-RUN npm install --omit=dev
-
-COPY --from=build /app/dist ./dist
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=build /app/packages/backend/dist ./dist
 
 CMD ["node", "dist/main"]

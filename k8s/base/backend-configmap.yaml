@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+data:
+  NODE_ENV: "production"
+  DATABASE_HOST: "postgres"
+  DATABASE_PORT: "5432"
+  DATABASE_NAME: "shunt_wizzard"
+  JWT_ACCESS_EXPIRATION: "15m"
+  S3_STORAGE_REGION: "fr-par"
+  S3_STORAGE_ENDPOINT: "https://s3.fr-par.scw.cloud"
+  # ALLOWED_ORIGINS is patched per-environment in overlays/dev and overlays/prod
+  ALLOWED_ORIGINS: ""

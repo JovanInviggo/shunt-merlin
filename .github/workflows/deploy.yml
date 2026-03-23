@@ -1,0 +1,169 @@
+# CI/CD Pipeline — Shunt Wizard
+#
+# How it works:
+#   Push to "develop" branch  →  builds images, deploys to DEV   (shunt-wizzard-dev namespace)
+#   Push to "main" branch     →  builds images, deploys to PROD  (shunt-wizzard-prod namespace)
+#
+# Required GitHub Secrets (repo → Settings → Secrets and variables → Actions):
+#
+#   KUBECONFIG_DATA      Your kubeconfig, base64-encoded:
+#                        base64 -i /Users/jovan/Downloads/shuntmerlin | pbcopy
+#
+#   VITE_API_URL_DEV     https://dev-api.yourdomain.com
+#   VITE_API_URL_PROD    https://api.yourdomain.com
+
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+
+env:
+  REGISTRY: ghcr.io
+  BACKEND_IMAGE: ghcr.io/jovaninviggo/shunt-merlin/backend
+  DASHBOARD_IMAGE: ghcr.io/jovaninviggo/shunt-merlin/dashboard
+
+jobs:
+  # ── Shared setup: compute environment variables ──
+  setup:
+    name: Setup
+    runs-on: ubuntu-24.04-arm
+    outputs:
+      environment: ${{ steps.vars.outputs.environment }}
+      k8s_namespace: ${{ steps.vars.outputs.k8s_namespace }}
+      kustomize_overlay: ${{ steps.vars.outputs.kustomize_overlay }}
+      vite_api_url: ${{ steps.vars.outputs.vite_api_url }}
+    steps:
+      - name: Set environment variables
+        id: vars
+        run: |
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            echo "environment=prod" >> $GITHUB_OUTPUT
+            echo "k8s_namespace=shunt-wizzard-prod" >> $GITHUB_OUTPUT
+            echo "kustomize_overlay=k8s/overlays/prod" >> $GITHUB_OUTPUT
+            echo "vite_api_url=${{ secrets.VITE_API_URL_PROD }}" >> $GITHUB_OUTPUT
+          else
+            echo "environment=dev" >> $GITHUB_OUTPUT
+            echo "k8s_namespace=shunt-wizzard-dev" >> $GITHUB_OUTPUT
+            echo "kustomize_overlay=k8s/overlays/dev" >> $GITHUB_OUTPUT
+            echo "vite_api_url=${{ secrets.VITE_API_URL_DEV }}" >> $GITHUB_OUTPUT
+          fi
+
+  # ── Build backend image (runs in parallel with dashboard) ──
+  build-backend:
+    name: Build Backend
+    needs: setup
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packages/backend/Dockerfile
+          target: production
+          push: true
+          platforms: linux/arm64
+          tags: |
+            ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+            ${{ env.BACKEND_IMAGE }}:${{ needs.setup.outputs.environment }}-latest
+          cache-from: type=registry,ref=${{ env.BACKEND_IMAGE }}:cache-${{ needs.setup.outputs.environment }}
+          cache-to: type=registry,ref=${{ env.BACKEND_IMAGE }}:cache-${{ needs.setup.outputs.environment }},mode=max
+
+  # ── Build dashboard image (runs in parallel with backend) ──
+  build-dashboard:
+    name: Build Dashboard
+    needs: setup
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push dashboard image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packages/dashboard/Dockerfile
+          push: true
+          platforms: linux/arm64
+          build-args: |
+            VITE_API_URL=${{ needs.setup.outputs.vite_api_url }}
+          tags: |
+            ${{ env.DASHBOARD_IMAGE }}:${{ github.sha }}
+            ${{ env.DASHBOARD_IMAGE }}:${{ needs.setup.outputs.environment }}-latest
+          cache-from: type=registry,ref=${{ env.DASHBOARD_IMAGE }}:cache-${{ needs.setup.outputs.environment }}
+          cache-to: type=registry,ref=${{ env.DASHBOARD_IMAGE }}:cache-${{ needs.setup.outputs.environment }},mode=max
+
+  # ── Deploy (runs after both builds succeed) ──
+  deploy:
+    name: Deploy to ${{ needs.setup.outputs.environment == 'prod' && 'Production' || 'Dev' }}
+    needs: [setup, build-backend, build-dashboard]
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBECONFIG_DATA }}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      # Apply cluster-scoped resources (safe to re-run — kubectl apply is idempotent)
+      - name: Apply cluster-scoped resources
+        run: |
+          kubectl apply -f k8s/gateway-class.yaml
+          kubectl apply -f k8s/cert-manager-issuer.yaml
+
+      # kubectl apply -k applies the kustomize overlay for the right environment
+      - name: Apply Kubernetes manifests
+        run: kubectl apply -k ${{ needs.setup.outputs.kustomize_overlay }}
+
+      # Update to the exact image SHA so Kubernetes knows to pull the new version
+      - name: Roll out new images
+        run: |
+          kubectl set image deployment/backend backend=${{ env.BACKEND_IMAGE }}:${{ github.sha }} -n ${{ needs.setup.outputs.k8s_namespace }}
+          kubectl set image deployment/dashboard dashboard=${{ env.DASHBOARD_IMAGE }}:${{ github.sha }} -n ${{ needs.setup.outputs.k8s_namespace }}
+
+      # Fail the workflow if the rollout doesn't succeed within 5 minutes
+      - name: Wait for rollout
+        run: |
+          kubectl rollout status deployment/backend -n ${{ needs.setup.outputs.k8s_namespace }} --timeout=5m
+          kubectl rollout status deployment/dashboard -n ${{ needs.setup.outputs.k8s_namespace }} --timeout=5m
+
+      - name: Summary
+        run: |
+          echo "Deployed ${{ github.sha }} to ${{ needs.setup.outputs.environment }}"
+          kubectl get pods -n ${{ needs.setup.outputs.k8s_namespace }}

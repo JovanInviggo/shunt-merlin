@@ -171,7 +171,7 @@ const translations: Record<Language, Record<string, string>> = {
     "home.totalPatients.subtitle": "Active monitoring",
     "home.last30Days.title": "Last 30 days",
     "home.last30Days.subtitle": "Recordings received",
-    "home.newRecordings.title": "4 new recordings are waiting for your review",
+    "home.newRecordings.title": "new recordings are waiting for your review",
     "home.export.button": "Export all data",
     "home.export.successTitle": "Export successful",
     "home.export.successDescription": "All data has been exported as CSV",

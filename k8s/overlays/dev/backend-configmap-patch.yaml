@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+data:
+  # Replace with your actual dev dashboard URL
+  ALLOWED_ORIGINS: "https://dev-dashboard.shuntwizard.com"

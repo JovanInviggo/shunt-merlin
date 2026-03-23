@@ -1,0 +1,49 @@
+# Cilium Helm values — applied to the cluster.
+#
+# To install from scratch:
+#   helm repo add cilium https://helm.cilium.io/
+#   helm install cilium cilium/cilium --version 1.19.1 --namespace kube-system -f k8s/cilium-values.yaml
+#
+# To upgrade:
+#   helm upgrade cilium cilium/cilium --version 1.19.1 --namespace kube-system -f k8s/cilium-values.yaml
+#
+# NOTE: Hetzner private network uses a gateway (10.0.0.1), so nodes are NOT L2-adjacent.
+# Native routing (routingMode: native + autoDirectNodeRoutes) does NOT work without
+# enabling CCM route management. Use tunnel mode (VXLAN) instead.
+
+cgroup:
+  autoMount:
+    enabled: false        # Hetzner nodes already mount cgroupv2 at /sys/fs/cgroup
+  hostRoot: /sys/fs/cgroup
+
+devices: enp7s0           # Hetzner private network interface
+
+gatewayAPI:
+  enabled: true
+
+ipam:
+  mode: kubernetes
+
+kubeProxyReplacement: true
+
+routingMode: tunnel
+tunnelProtocol: vxlan
+
+securityContext:
+  capabilities:
+    ciliumAgent:
+      - CHOWN
+      - KILL
+      - NET_ADMIN
+      - NET_RAW
+      - IPC_LOCK
+      - SYS_ADMIN
+      - SYS_RESOURCE
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+    cleanCiliumState:
+      - NET_ADMIN
+      - SYS_ADMIN
+      - SYS_RESOURCE

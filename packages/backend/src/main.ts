@@ -1,10 +1,15 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const logger = new Logger('HTTP');
+  app.use((req: { method: string; url: string }, _res: unknown, next: () => void) => {
+    logger.log(`${req.method} ${req.url.split('?')[0]}`);
+    next();
+  });
 
   app.useGlobalPipes(
     new ValidationPipe({

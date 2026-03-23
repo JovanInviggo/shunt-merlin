@@ -115,12 +115,29 @@ export interface Study {
   updatedAt: string;
 }
 
+export type RecordingClassification = 'not_classified' | 'normal' | 'abnormal' | 'unclear';
+
 export interface Recording {
   id: string;
   studyId: string;
   s3Key: string;
+  classification: RecordingClassification | null;
+  note: string | null;
+  metadata: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface UpdateRecordingDto {
+  classification?: RecordingClassification | null;
+  note?: string | null;
+}
+
+export function updateRecording(id: string, dto: UpdateRecordingDto) {
+  return apiFetch<Recording>(`/recordings/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(dto),
+  });
 }
 
 export interface AdminLoginResponse {
@@ -148,6 +165,10 @@ export function fetchStudies() {
   return apiFetch<Study[]>("/study");
 }
 
+export function fetchStudy(id: string) {
+  return apiFetch<Study>(`/study/${id}`);
+}
+
 export function createStudy(studyId: string) {
   return apiFetch<Study>("/study", {
     method: "POST",
@@ -155,7 +176,15 @@ export function createStudy(studyId: string) {
   });
 }
 
-export function fetchRecordings() {
-  return apiFetch<Recording[]>("/recordings");
+export interface PaginatedRecordings {
+  data: Recording[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export function fetchRecordings(page = 1, limit = 10) {
+  return apiFetch<PaginatedRecordings>(`/recordings?page=${page}&limit=${limit}`);
 }
 

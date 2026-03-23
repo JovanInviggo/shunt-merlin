@@ -335,7 +335,6 @@ export const processQueue = async (): Promise<void> => {
       console.log("Getting presigned upload url");
       // Step 1: Get fresh presigned URL
       const { uploadUrl, s3Key } = await getPresignedUploadUrl(filename);
-      console.log("uploadUrl", uploadUrl);
       // Step 2: Upload audio file
       await uploadFileWithPresignedUrl(itemToProcess.audioPath, uploadUrl);
       console.log(`Successfully uploaded queue item to S3: ${itemToProcess.id}`);

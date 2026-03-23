@@ -7,7 +7,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const logger = new Logger('HTTP');
   app.use((req: { method: string; url: string }, _res: unknown, next: () => void) => {
-    logger.log(`${req.method} ${req.url}`);
+    logger.log(`${req.method} ${req.url.split('?')[0]}`);
     next();
   });
 

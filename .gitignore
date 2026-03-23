@@ -38,6 +38,7 @@ coverage/
 
 # pnpm
 pnpm-debug.log*
+package-lock.json
 
 .claude/
 CLAUDE.md

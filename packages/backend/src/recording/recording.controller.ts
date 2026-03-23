@@ -8,6 +8,7 @@ import {
   Query,
   UseGuards,
   Request,
+  BadRequestException,
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
@@ -131,6 +132,9 @@ export class RecordingController {
     const { studyId } = req.user;
     if (req.user.type !== 'participant' || !studyId) {
       throw new ForbiddenException('Only participants can create recordings');
+    }
+    if (!dto.s3Key.startsWith(`recordings/${studyId}/`)) {
+      throw new BadRequestException('s3Key does not belong to your study');
     }
     return this.recordingService.create(studyId, dto);
   }

@@ -6,6 +6,7 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { Study } from '../study/study.entity';
 import { RecordingClassification } from './recording-classification.enum';
@@ -15,6 +16,7 @@ export class Recording {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Index()
   @Column()
   studyId: string;
 

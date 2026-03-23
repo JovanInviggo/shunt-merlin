@@ -6,9 +6,6 @@ namespace: shunt-wizzard-dev
 
 resources:
   - ../../base
-
-# Dev-specific resources (namespace + ingress with dev URLs)
-resources:
   - namespace.yaml
   - gateway.yaml
 

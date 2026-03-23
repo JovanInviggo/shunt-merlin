@@ -5,8 +5,6 @@ namespace: shunt-wizzard-prod
 
 resources:
   - ../../base
-
-resources:
   - namespace.yaml
   - gateway.yaml
 

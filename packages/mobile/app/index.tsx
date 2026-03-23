@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Alert, TouchableOpacity, StyleSheet, Image, View } from 'react-native';
 import { Text } from "../components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router, useLocalSearchParams } from "expo-router";
+import { router } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
+import { popRecordCancelled } from "../utils/record-cancelled";
 import { clearQueue } from "../utils/upload-queue";
 import { RecordingsList } from "../components/RecordingsList";
 import { useI18n } from "../locales";
@@ -11,17 +13,18 @@ import { Ionicons } from "@expo/vector-icons";
 
 export default function Index() {
   const { t } = useI18n();
-  const { cancelled } = useLocalSearchParams<{ cancelled?: string }>();
   const [hasRecordings, setHasRecordings] = useState<boolean>(true);
   const [showCancelledToast, setShowCancelledToast] = useState(false);
 
-  useEffect(() => {
-    if (cancelled === "true") {
-      setShowCancelledToast(true);
-      const timer = setTimeout(() => setShowCancelledToast(false), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [cancelled]);
+  useFocusEffect(
+    useCallback(() => {
+      if (popRecordCancelled()) {
+        setShowCancelledToast(true);
+        const timer = setTimeout(() => setShowCancelledToast(false), 3000);
+        return () => clearTimeout(timer);
+      }
+    }, [])
+  );
 
   // Show empty state while loading or when no recordings
   const showEmptyState = hasRecordings === false;

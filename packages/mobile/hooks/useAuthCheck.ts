@@ -21,7 +21,7 @@ export const useAuthCheck = () => {
         // Check login status
         const loggedIn = await isLoggedIn();
         if (!loggedIn) {
-          router.dismissAll();
+          if (router.canDismiss()) router.dismissAll();
           router.replace("/login");
           setIsChecking(false);
           return;

@@ -96,7 +96,7 @@ export default function RootLayout() {
             >
               <Stack.Screen name="index" />
               <Stack.Screen name="login" options={{ headerShown: false }} />
-              <Stack.Screen name="record" options={{ headerShown: false, presentation: 'modal' }} />
+              <Stack.Screen name="record" options={{ headerShown: false, presentation: 'transparentModal', animation: 'none' }} />
               <Stack.Screen name="settings" options={{ headerShown: false }} />
               <Stack.Screen name="guideline" options={{ headerShown: false }} />
               <Stack.Screen name="recording-overview" options={{ headerShown: false }} />

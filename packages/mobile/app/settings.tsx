@@ -79,7 +79,7 @@ export default function SettingsScreen() {
           style: "destructive",
           onPress: async () => {
             await apiService.logout();
-            router.dismissAll();
+            if (router.canDismiss()) router.dismissAll();
             router.replace("/login");
           },
         },

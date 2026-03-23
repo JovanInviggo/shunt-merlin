@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
+import { setRecordCancelled } from "../utils/record-cancelled";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import * as Haptics from "expo-haptics";
 import { useKeepAwake } from "expo-keep-awake";
@@ -60,6 +61,8 @@ export default function RecordScreen() {
   const cancelRecordingRef = useRef<(() => Promise<void>) | null>(null);
   const phoneOverlayAnim = useRef(new Animated.Value(1)).current;
   const recordScreenAnim = useRef(new Animated.Value(0)).current;
+  const overlayFade = useRef(new Animated.Value(0)).current;
+  const cardSlide = useRef(new Animated.Value(800)).current;
 
   // Load studyId from auth storage if not provided via params
   useEffect(() => {
@@ -69,6 +72,24 @@ export default function RecordScreen() {
       });
     }
   }, []);
+
+  // Animate overlay in + card slide-up on mount
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(overlayFade, { toValue: 1, duration: 250, useNativeDriver: true }),
+      Animated.spring(cardSlide, { toValue: 0, useNativeDriver: true, tension: 80, friction: 14 }),
+    ]).start();
+  }, []);
+
+  const dismissWithAnimation = useCallback((beforeDismiss?: () => void) => {
+    Animated.parallel([
+      Animated.timing(overlayFade, { toValue: 0, duration: 200, useNativeDriver: true }),
+      Animated.timing(cardSlide, { toValue: 800, duration: 250, useNativeDriver: true }),
+    ]).start(() => {
+      beforeDismiss?.();
+      router.dismiss();
+    });
+  }, [overlayFade, cardSlide]);
 
   const isCheckingPermissionRef = useRef(false);
 
@@ -96,8 +117,8 @@ export default function RecordScreen() {
       }),
     };
     await addToQueue(path, metadata);
-    router.replace("/");
-  }, []);
+    dismissWithAnimation();
+  }, [dismissWithAnimation]);
 
   const handleQualityCheck = useCallback(async (quality: AudioQualityResult) => {
     qualityResultRef.current = quality; // capture, never block
@@ -116,7 +137,7 @@ export default function RecordScreen() {
 
     const studyId = studyIdRef.current;
     if (!path || !studyId) {
-      router.replace("/");
+      dismissWithAnimation();
       return;
     }
 
@@ -156,7 +177,7 @@ export default function RecordScreen() {
     if (isRecording) {
       await cancelRecording();
     }
-    router.replace("/?cancelled=true");
+    dismissWithAnimation(() => setRecordCancelled());
   };
 
   const vibrateAndStartRecording = async () => {
@@ -238,11 +259,8 @@ export default function RecordScreen() {
 
   return (
     <>
-      <LowSignalOverlay
-        visible={showLowSignal}
-        onRetry={handleLowSignalRetry}
-      />
-      <View style={styles.modalSheet}>
+      <Animated.View style={[styles.overlay, { opacity: overlayFade }]} />
+      <Animated.View style={[styles.modalSheet, { transform: [{ translateY: cardSlide }] }]}>
         {showPhonePosition && (
           <Animated.View
             style={{
@@ -260,7 +278,7 @@ export default function RecordScreen() {
           >
             <PhonePosition
               showCancelButton={true}
-              onCancelPress={() => router.replace("/")}
+              onCancelPress={() => dismissWithAnimation()}
               buttonText={t.record.startRecording}
               showHeader={false}
               onButtonPress={handleStartFromPhonePosition}
@@ -286,7 +304,7 @@ export default function RecordScreen() {
               style={styles.container}
               edges={["left", "right", "bottom"]}
             >
-            <TouchableOpacity onPress={recordingComplete || !isRecording ? () => router.replace("/") : cancelRecordingAlert} style={styles.closeButton}>
+            <TouchableOpacity onPress={recordingComplete || !isRecording ? () => dismissWithAnimation() : cancelRecordingAlert} style={styles.closeButton}>
               <Ionicons name="close" size={18} style={styles.closeButtonIcon} />
             </TouchableOpacity>
 
@@ -387,14 +405,26 @@ export default function RecordScreen() {
           </SafeAreaView>
           </Animated.View>
         )}
-      </View>
+      </Animated.View>
+      <LowSignalOverlay
+        visible={showLowSignal}
+        onRetry={handleLowSignalRetry}
+      />
     </>
   );
 }
 
 const styles = StyleSheet.create({
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
   modalSheet: {
-    flex: 1,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '92%',
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     overflow: 'hidden',

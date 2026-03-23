@@ -4,4 +4,4 @@ metadata:
   name: backend-config
 data:
   # Replace with your actual dev dashboard URL
-  ALLOWED_ORIGINS: "https://dev-dashboard.shuntwizard.com"
+  ALLOWED_ORIGINS: https://dev-dashboard.shuntwizard.com

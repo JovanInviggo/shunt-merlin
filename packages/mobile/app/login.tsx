@@ -39,7 +39,7 @@ export default function LoginScreen() {
       await storeAuthStudyId(response.studyId);
       await storeUserType(response.type);
 
-      router.dismissAll();
+      if (router.canDismiss()) router.dismissAll();
       router.replace("/guideline");
     } catch (err: any) {
       console.error("Login error:", err);
